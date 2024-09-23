@@ -67,7 +67,7 @@ function construct_tensor_partition(q,beta,chi)
     #@tensor begin 
     #Z = a[a,b,c,d]*T[e,f,a]*T[g,h,b]*T[i,j,c]*T[k,l,d]*C[e,g]*C[h,i]*C[j,k]*C[l,f]
     #k =  b[a,b,c,d]*T[e,f,a]*T[g,h,b]*T[i,j,c]*T[k,l,d]*C[e,g]*C[h,i]*C[j,k]*C[l,f]
-    #end
+    #end"
 
     # ## calculate correlation length
     M = zeros((chi,chi,chi,chi))
