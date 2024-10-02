@@ -44,3 +44,5 @@ for q in Q
     plot!(ylabel = "Correlation length", xlabel = "bond_dimensions", title = "VUMPS-Potts model (q=$q) correlation length")
     savefig(p2,"Correlation_length_Potts$q from_D10-30.png")
 end
+
+

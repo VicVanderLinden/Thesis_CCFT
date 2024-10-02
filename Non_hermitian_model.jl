@@ -50,11 +50,11 @@ end
 lambda = 5
 J = 4
 h = 2
+Q = 2
 ### The potts_field has not been adapeted to the symmetry type, so it might not go as fast. If needed implement this in MPSKitModels
 ##thats why both are used without symmetry imposed
-H_Potts = @mpoham sum((J * potts_exchange(; q=5)){i, i+1} + (h * potts_field(; q = 5)){i} for i in vertices(InfiniteChain(2)))
+H_Potts = @mpoham sum((J * potts_exchange(; q=Q)){i, i+1} + (h * potts_field(; q = Q)){i} for i in vertices(InfiniteChain()))
 
-#H1 =  @mpoham lambda * sum((potts_field(; q = 5){i} + potts_field(; q = 5){i+1})   for i in vertices(InfiniteChain(2)))
 
 
 
@@ -63,64 +63,86 @@ H_Potts = @mpoham sum((J * potts_exchange(; q=5)){i, i+1} + (h * potts_field(; q
 ### aditionally how can i do {i+1} in some parts??
 
 
-
-
-
 """
     potts_phase([eltype::Type{<:Number}], [symmetry::Type{<:Sector}]; q=3)
 
 The Potts phase operator sigma |n> = e^{2pin/Q} |n>.
 """
+function potts_spin_shift end
+potts_spin_shift(; kwargs...) = potts_spin_shift(ComplexF64, Trivial; kwargs...)
+potts_spin_shift(elt::Type{<:Number}; kwargs...) = potts_spin_shift(elt, Trivial; kwargs...)
+function potts_spin_shift(symmetry::Type{<:Sector}; kwargs...)
+    return potts_spin_shift(ComplexF64, symmetry; kwargs...)
+end
+
+
+function potts_spin_shift(elt::Type{<:Number}, ::Type{Trivial}; q=3, k=1)
+    pspace = ComplexSpace(q)
+    tau = TensorMap(zeros, elt, pspace ← pspace)
+    for i in 1:q
+        tau[mod1(i + 1, q), i] = one(elt)
+    end
+    return tau^k
+end
 function potts_phase end
-potts_phase(; kwargs...) = potts_exchange(ComplexF64, Trivial; kwargs...)
+potts_phase(; kwargs...) = potts_phase(ComplexF64, Trivial; kwargs...)
 potts_phase(elt::Type{<:Number}; kwargs...) = potts_phase(elt, Trivial; kwargs...)
 function potts_phase(symmetry::Type{<:Sector}; kwargs...)
     return potts_phase(ComplexF64, symmetry; kwargs...)
 end
 
 
-function potts_phase(elt::Type{<:Number}, ::Type{Trivial}; q=3)
+function potts_phase(elt::Type{<:Number}, ::Type{Trivial}; q=3,k=1)
     pspace = ComplexSpace(q)
     sigma = TensorMap(zeros, elt, pspace ← pspace)
     for i in 1:q
-        sigma[i, i] = cis(2*pi*i/q)
+        sigma[i, i] = cis(2*pi*(i-1)/q)
     end
-    return sigma
+    return (sigma^k'⊗ sigma^k)
+end
+function potts_phase_shift_combined end
+potts_phase_shift_combined(; kwargs...) = potts_phase_shift_combined(ComplexF64, Trivial; kwargs...)
+potts_phase_shift_combined(elt::Type{<:Number}; kwargs...) = potts_phase_combined(elt, Trivial; kwargs...)
+function potts_phase_shift_combined(symmetry::Type{<:Sector}; kwargs...)
+    return potts_phase_combined(ComplexF64, symmetry; kwargs...)
 end
 
 
-
-function potts_spin_shift_dag end
-potts_spin_shift_dag(; kwargs...) = spin_shift_dag(ComplexF64, Trivial; kwargs...)
-potts_spin_shift_dag(elt::Type{<:Number}; kwargs...) = spin_shift_dag(elt, Trivial; kwargs...)
-function potts_spin_shift_dag(symmetry::Type{<:Sector}; kwargs...)
-    return potts_spin_shift_dag(ComplexF64, symmetry; kwargs...)
-end
-
-function potts_spin_shift_dag(elt::Type{<:Number}, ::Type{Trivial}; q=3)
+function potts_phase_shift_combined(elt::Type{<:Number}, ::Type{Trivial}; q=3,k=1,p=1)
     pspace = ComplexSpace(q)
+    sigma = TensorMap(zeros, elt, pspace ← pspace)
     tau = TensorMap(zeros, elt, pspace ← pspace)
+    identity_e = TensorMap(zeros, elt, pspace ← pspace)
     for i in 1:q
+        sigma[i, i] = cis(2*pi*(i-1)/q)
         tau[mod1(i + 1, q), i] = one(elt)
+        identity_e[i,i]= 1
     end
-    return tau
+    return (tau^k'⊗ identity_e) * (sigma^p'⊗ sigma^p) + (identity_e ⊗ tau^k') * (sigma^k'⊗ sigma^k) + (sigma^k'⊗ sigma^k) * (tau^p'⊗ identity_e) +  (sigma^k'⊗ sigma^k) * (identity_e ⊗ tau^p')
 end
 
-function potts_spin_shift end
-potts_spin_shift(; kwargs...) = spin_shift(ComplexF64, Trivial; kwargs...)
-potts_spin_shift(elt::Type{<:Number}; kwargs...) = spin_shift(elt, Trivial; kwargs...)
-function potts_spin_shift(symmetry::Type{<:Sector}; kwargs...)
-    return potts_spin_shift(ComplexF64, symmetry; kwargs...)
-end
+lambda = 5
+J = 4
+h = 2
+Q = 2
+L = 10
+H_Potts_alt = @mpoham sum(sum((J * potts_phase(; q=Q,k=j)){i,i+1} + (h * potts_spin_shift(; q = Q,k=j)){i} for j in 1:1:Q-1) for i in vertices(FiniteChain(L))[1:(end - 1)])
+H1 =  @mpoham lambda * sum( sum(sum(potts_phase_shift_combined(;q=Q,k=j,p=l){i,i+1} for l in 1:1:Q-1) for j in 1:1:Q-1)   for i in vertices(FiniteChain(L))[1:(end - 1)])
 
-function potts_spin_shift(elt::Type{<:Number}, ::Type{Trivial}; q=3)
-    pspace = ComplexSpace(q)
-    tau = TensorMap(zeros, elt, pspace ← pspace)
-    for i in 1:q
-        tau[mod1(i - 1, q), i] = one(elt)
-    end
-    return tau
-end
+###Ying Tang hamiltonian
+H = H1+H_Potts_alt
 
 
-#H_Potts_alt = @mpoham sum(J * (potts_phase(; q=5)* potts_phase(; q=5)){i} for i in vertices(InfiniteChain(2)))
+
+
+### MPS quantum
+using MPSKit
+using MPSKitModels
+using TensorKit
+using TensorOperations
+using Plots
+using Polynomials
+ψ₀ = FiniteMPS(ℂ^Q, ℂ^25)
+ψ, envs = find_groundstate(ψ₀, H, DMRG(maxiter = 500,tol=1e-7, eigalg =MPSKit.Defaults.alg_eigsolve(; ishermitian=false)));
+  
+
