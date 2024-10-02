@@ -115,22 +115,13 @@ function potts_phase_shift_combined(elt::Type{<:Number}, ::Type{Trivial}; q=3,k=
     identity_e = TensorMap(zeros, elt, pspace ← pspace)
     for i in 1:q
         sigma[i, i] = cis(2*pi*(i-1)/q)
-        tau[mod1(i + 1, q), i] = one(elt)
+        tau[mod1(i - 1, q), i] = one(elt)
         identity_e[i,i]= 1
     end
     return (tau^k'⊗ identity_e) * (sigma^p'⊗ sigma^p) + (identity_e ⊗ tau^k') * (sigma^k'⊗ sigma^k) + (sigma^k'⊗ sigma^k) * (tau^p'⊗ identity_e) +  (sigma^k'⊗ sigma^k) * (identity_e ⊗ tau^p')
 end
 
-lambda = 5
-J = 4
-h = 2
-Q = 2
-L = 10
-H_Potts_alt = @mpoham sum(sum((J * potts_phase(; q=Q,k=j)){i,i+1} + (h * potts_spin_shift(; q = Q,k=j)){i} for j in 1:1:Q-1) for i in vertices(FiniteChain(L))[1:(end - 1)])
-H1 =  @mpoham lambda * sum( sum(sum(potts_phase_shift_combined(;q=Q,k=j,p=l){i,i+1} for l in 1:1:Q-1) for j in 1:1:Q-1)   for i in vertices(FiniteChain(L))[1:(end - 1)])
 
-###Ying Tang hamiltonian
-H = H1+H_Potts_alt
 
 
 
@@ -142,7 +133,52 @@ using TensorKit
 using TensorOperations
 using Plots
 using Polynomials
-ψ₀ = FiniteMPS(ℂ^Q, ℂ^25)
-ψ, envs = find_groundstate(ψ₀, H, DMRG(maxiter = 500,tol=1e-7, eigalg =MPSKit.Defaults.alg_eigsolve(; ishermitian=false)));
-  
+
+lambda = 0.079 - 0.060*im
+J = 1
+h = 1
+Q = 5
+D=5
+L_list = 5:1:6
+# energies = similar(L_list,ComplexF64)
+# global i=0
+# for L in L_list
+
+#     ###Yin Tang hamiltonian
+#     H_Potts_alt = @mpoham sum(sum((J * potts_phase(; q=Q,k=j)){i,i+1} + (h * potts_spin_shift(; q = Q,k=j)){i} for j in 1:1:Q-1) for i in vertices(FiniteChain(L))[1:(end - 1)]);
+#     H1 =  @mpoham lambda * sum( sum(sum(potts_phase_shift_combined(;q=Q,k=j,p=l){i,i+1} for l in 1:1:Q-1) for j in 1:1:Q-1)   for i in vertices(FiniteChain(L))[1:(end - 1)]);
+#     H = -H_Potts_alt + H1;
+#     H = periodic_boundary_conditions(H);
+
+
+#     global i+=1
+#     ψ₀ = FiniteMPS(L,ℂ^Q, ℂ^D);
+#     println("start")
+#     ψ, envs , delta   = find_groundstate(ψ₀, H, DMRG(maxiter = 500,tol=1e-5, eigalg =MPSKit.Defaults.alg_eigsolve(; ishermitian=false)));
+#     energies[i] = expectation_value(ψ,H,envs)
+# end
+
+x_values = 1 ./L_list.^2
+divided_energies = similar(L_list,ComplexF64)
+for i in 1:1:length(L_list)
+    divided_energies[i] = energies[i]/L_list[i]
+end
+
+f = fit(x_values, real(divided_energies), 1)
+c = f.coeffs[2]
+println(c)
+p = plot(; xlabel="1/L²", ylabel="Re(E0/L)")
+p = plot!(x_values,real(divided_energies) ; seriestype=:scatter)
+plot!(p, x_values -> f(x_values); label="fit real(c) = $c")
+savefig(p,"Real Energy scaling D = $D.png")
+
+
+f = fit(x_values, real(-im*divided_energies), 1)
+c = f.coeffs[2]
+println(c)
+p = plot(; xlabel="1/L²", ylabel="Im(E0/L)")
+p = plot!(x_values,real(-im.*divided_energies) ; seriestype=:scatter)
+plot!(p, x_values -> f(x_values); label="fit real(c) = $c")
+savefig(p,"Imaginary Energy scaling D= $D.png")
+
 
