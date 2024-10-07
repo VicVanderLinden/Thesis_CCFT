@@ -13,7 +13,7 @@ function scaling_simulations_potts(ψ₀,H,Ds)
     entropies[1] = real(entropy(ψ)[1])
     correlations[1] = correlation_length(ψ)
     for (i,d) in enumerate(diff(Ds))
-        ψ,envs = changebonds(ψ, H, OptimalExpand(; trscheme=truncdim(d)), envs)
+        ψ,envs = changebonds(ψ, H, OptimalExpand(; trscheme=truncdim(d)), envs) ### truncr !!
         ψ, envs = find_groundstate(ψ, H, VUMPS(maxiter = 500,tol=1e-7, alg_eigsolve=MPSKit.Defaults.alg_eigsolve(; ishermitian=false)));
         entropies[i+1] = real(entropy(ψ)[1])
         correlations[i+1] = correlation_length(ψ)

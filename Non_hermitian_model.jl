@@ -1,68 +1,10 @@
 # https://arxiv.org/pdf/2403.00852 (2024)
-
-using MPSKitModels, TensorKit
-
-"""
-    potts_exchange([eltype::Type{<:Number}], [symmetry::Type{<:Sector}]; q=3)
-
-The Potts exchange operator ``Z ⊗ Z' + Z' ⊗ Z``, where ``Z^q = 1``.
-"""
-function potts_exchange end
-potts_exchange(; kwargs...) = potts_exchange(ComplexF64, Trivial; kwargs...)
-potts_exchange(elt::Type{<:Number}; kwargs...) = potts_exchange(elt, Trivial; kwargs...)
-function potts_exchange(symmetry::Type{<:Sector}; kwargs...)
-    return potts_exchange(ComplexF64, symmetry; kwargs...)
-end
-
-function potts_exchange(elt::Type{<:Number}, ::Type{Trivial}; q=3)
-    pspace = ComplexSpace(q)
-    Z = TensorMap(zeros, elt, pspace ← pspace)
-    for i in 1:q
-        Z[i, i] = cis(2π * (i - 1) / q)
-    end
-    return Z ⊗ Z' + Z' ⊗ Z
-end
-"""
-    potts_field([eltype::Type{<:Number}], [symmetry::Type{<:Sector}]; q=3) 
-
-The Potts field operator ``X + X'``, where ``X^q = 1``.
-"""
-
-function potts_field end
-potts_field(; kwargs...) = potts_field(ComplexF64, Trivial; kwargs...)
-potts_field(elt::Type{<:Number}; kwargs...) = potts_field(elt, Trivial; kwargs...)
-function potts_field(symmetry::Type{<:Sector}; kwargs...)
-    return potts_field(ComplexF64, symmetry; kwargs...)
-end
-
-function potts_field(elt::Type{<:Number}, ::Type{Trivial}; q=3)
-    pspace = ComplexSpace(q)
-    X = TensorMap(zeros, elt, pspace ← pspace)
-    for i in 1:q
-        X[mod1(i - 1, q), i] = one(elt)
-    end
-    return X + X'
-end
-
-
-
-
-lambda = 5
-J = 4
-h = 2
-Q = 2
-### The potts_field has not been adapeted to the symmetry type, so it might not go as fast. If needed implement this in MPSKitModels
-##thats why both are used without symmetry imposed
-H_Potts = @mpoham sum((J * potts_exchange(; q=Q)){i, i+1} + (h * potts_field(; q = Q)){i} for i in vertices(InfiniteChain()))
-
-
-
-
-### i need to ask about how {i,j} works, since in exchange it works, but in field in doesn't and i don't quite know chy
-## this for manual implementation
-### aditionally how can i do {i+1} in some parts??
-
-
+using MPSKit
+using MPSKitModels
+using TensorKit
+using TensorOperations
+using Plots
+using Polynomials
 """
     potts_phase([eltype::Type{<:Number}], [symmetry::Type{<:Sector}]; q=3)
 
@@ -80,7 +22,7 @@ function potts_spin_shift(elt::Type{<:Number}, ::Type{Trivial}; q=3, k=1)
     pspace = ComplexSpace(q)
     tau = TensorMap(zeros, elt, pspace ← pspace)
     for i in 1:q
-        tau[mod1(i + 1, q), i] = one(elt)
+        tau[i,mod1(i - 1, q)] = one(elt)
     end
     return tau^k
 end
@@ -98,7 +40,7 @@ function potts_phase(elt::Type{<:Number}, ::Type{Trivial}; q=3,k=1)
     for i in 1:q
         sigma[i, i] = cis(2*pi*(i-1)/q)
     end
-    return (sigma^k'⊗ sigma^k)
+    return (sigma'⊗ sigma)^k
 end
 function potts_phase_shift_combined end
 potts_phase_shift_combined(; kwargs...) = potts_phase_shift_combined(ComplexF64, Trivial; kwargs...)
@@ -115,70 +57,53 @@ function potts_phase_shift_combined(elt::Type{<:Number}, ::Type{Trivial}; q=3,k=
     identity_e = TensorMap(zeros, elt, pspace ← pspace)
     for i in 1:q
         sigma[i, i] = cis(2*pi*(i-1)/q)
-        tau[mod1(i - 1, q), i] = one(elt)
+        tau[i,mod1(i - 1, q)] = one(elt)
         identity_e[i,i]= 1
     end
-    return (tau^k'⊗ identity_e) * (sigma^p'⊗ sigma^p) + (identity_e ⊗ tau^k') * (sigma^k'⊗ sigma^k) + (sigma^k'⊗ sigma^k) * (tau^p'⊗ identity_e) +  (sigma^k'⊗ sigma^k) * (identity_e ⊗ tau^p')
+    return (tau^k'⊗ identity_e) * (sigma'⊗ sigma)^p + (identity_e ⊗ tau^k') * (sigma'⊗ sigma)^k + (sigma'⊗ sigma)^k * (tau^p'⊗ identity_e) +  (sigma'⊗ sigma)^k * (identity_e ⊗ tau^p')
 end
 
 
 
 
-
-
-### MPS quantum
-using MPSKit
-using MPSKitModels
-using TensorKit
-using TensorOperations
-using Plots
-using Polynomials
-
-lambda = 0.079 - 0.060*im
+lambda = 0.079 + 0.060im
 J = 1
 h = 1
 Q = 5
-D=5
-L_list = 5:1:6
-# energies = similar(L_list,ComplexF64)
-# global i=0
-# for L in L_list
+D= 25
 
-#     ###Yin Tang hamiltonian
-#     H_Potts_alt = @mpoham sum(sum((J * potts_phase(; q=Q,k=j)){i,i+1} + (h * potts_spin_shift(; q = Q,k=j)){i} for j in 1:1:Q-1) for i in vertices(FiniteChain(L))[1:(end - 1)]);
-#     H1 =  @mpoham lambda * sum( sum(sum(potts_phase_shift_combined(;q=Q,k=j,p=l){i,i+1} for l in 1:1:Q-1) for j in 1:1:Q-1)   for i in vertices(FiniteChain(L))[1:(end - 1)]);
-#     H = -H_Potts_alt + H1;
-#     H = periodic_boundary_conditions(H);
+                                     ##### Simulating energies
+L_list = 8:1:13
+N_sizes = length(L_list)
+N_levels = 10 ## Gets until the N'th energie level
+Energie_levels = zeros(ComplexF64,(N_sizes,N_levels+1))
+println(size(Energie_levels))
+for (i,L) in enumerate(L_list)
 
+    ###Yin Tang hamiltonian
+    H = @mpoham (sum(sum((-J * potts_phase(; q=Q,k=j)){i,i+1} + (-h * potts_spin_shift(; q = Q,k=j)){i} for j in 1:1:Q-1) for i in vertices(FiniteChain(L))[1:(end - 1)]) ##" potts model
+    +sum( -J * potts_phase(; q=Q,k=j){vertices(FiniteChain(L))[end],vertices(FiniteChain(L))[1]}+ (-h * potts_spin_shift(; q = Q,k=j)){vertices(FiniteChain(L))[end]} for j in 1:1:Q-1) ##potts model periodic bc
+    + lambda * sum( sum(sum(potts_phase_shift_combined(;q=Q,k=j,p=l){i,i+1} for l in 1:1:Q-1) for j in 1:1:Q-1)   for i in vertices(FiniteChain(L))[1:(end - 1)]) ##" additional non hermitian model
+    + lambda * sum(sum(potts_phase_shift_combined(;q=Q,k=j,p=l){vertices(FiniteChain(L))[end],vertices(FiniteChain(L))[1]} for l in 1:1:Q-1) for j in 1:1:Q-1)); ## non hermitian model periodic bc
+    ψ₀ = FiniteMPS(L,ℂ^Q, ℂ^D);
+    println("start")
+    (ψ, envir , delta)   = find_groundstate(ψ₀, H, DMRG(maxiter = 500,tol=1e-5, eigalg =MPSKit.Defaults.alg_eigsolve(; ishermitian=false)));
+    Energie_levels[i,1] = expectation_value(ψ,H,envir)
+    states = (ψ, )
 
-#     global i+=1
-#     ψ₀ = FiniteMPS(L,ℂ^Q, ℂ^D);
-#     println("start")
-#     ψ, envs , delta   = find_groundstate(ψ₀, H, DMRG(maxiter = 500,tol=1e-5, eigalg =MPSKit.Defaults.alg_eigsolve(; ishermitian=false)));
-#     energies[i] = expectation_value(ψ,H,envs)
-# end
-
-x_values = 1 ./L_list.^2
-divided_energies = similar(L_list,ComplexF64)
-for i in 1:1:length(L_list)
-    divided_energies[i] = energies[i]/L_list[i]
+      
+    En , other  = excitations(H,FiniteExcited(gsalg =DMRG(maxiter = 200,tol=1e-3, eigalg =MPSKit.Defaults.alg_eigsolve(; ishermitian=false))), states,num=N_levels);
+    println(En)
+    println(other)
+    Energie_levels[i,2:end] = En
+    println(other)
+    
 end
 
-f = fit(x_values, real(divided_energies), 1)
-c = f.coeffs[2]
-println(c)
-p = plot(; xlabel="1/L²", ylabel="Re(E0/L)")
-p = plot!(x_values,real(divided_energies) ; seriestype=:scatter)
-plot!(p, x_values -> f(x_values); label="fit real(c) = $c")
-savefig(p,"Real Energy scaling D = $D.png")
+
+using JLD2
+save_object("MPSNonHermitian_pottsq5[8,9,10,11,12,13]-$N_levels,_energies.jld2", Energie_levels)
 
 
-f = fit(x_values, real(-im*divided_energies), 1)
-c = f.coeffs[2]
-println(c)
-p = plot(; xlabel="1/L²", ylabel="Im(E0/L)")
-p = plot!(x_values,real(-im.*divided_energies) ; seriestype=:scatter)
-plot!(p, x_values -> f(x_values); label="fit real(c) = $c")
-savefig(p,"Imaginary Energy scaling D= $D.png")
 
 
