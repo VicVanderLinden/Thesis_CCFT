@@ -5,7 +5,7 @@ data = [-33.212827480601305 + 2.791500707592999im -32.91404308182004 + 2.5567487
 #####################################Energie levels all #################
 # 
 
-p = plot(; xlabel="1/L", ylabel="real(E0 - En)",title = "Energy gap of Pottsq5 using naive DMRG")
+p = plot(; xlabel="1/L", ylabel="real(En - E0)",title = "Energy gap of Pottsq5 using naive DMRG")
 for (d,L) in enumerate(L_List)
     plot!(p,1 ./(zeros(10).+L),real(data[d,2:end].-real(data[d,1])),seriestype=:scatter,legend =false )
 end
@@ -14,7 +14,7 @@ savefig(p,"Real 10 level Energy scaling L=[8,9,10], D= 25.png")
 
 q = plot(; xlabel="1/L", ylabel="IM(En-E0)",title="Energy gap of Pottsq5 using naive DMRG")
 for (d,L) in enumerate(L_List)
-    plot!(q,1 ./(zeros(10).+L),real(-im.*(data[d,2:end].-real(data[d,1]))),seriestype=:scatter,legend=false )
+    plot!(q,1 ./(zeros(10).+L),real(-im.*(data[d,2:end].-data[d,1])),seriestype=:scatter,legend=false)
 end
 savefig(q,"Imaginary 10 level Energy scaling L=[8,9,10], D= 25.png")
 
