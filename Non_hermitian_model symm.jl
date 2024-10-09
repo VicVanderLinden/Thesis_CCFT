@@ -10,7 +10,6 @@ using Polynomials
 
 The Potts phase operator sigma |n> = e^{2pin/Q} |n>.
 """
-
 function potts_spin_shift end
 potts_spin_shift(; kwargs...) = potts_spin_shift(ComplexF64, Trivial; kwargs...)
 potts_spin_shift(elt::Type{<:Number}; kwargs...) = potts_spin_shift(elt, Trivial; kwargs...)
@@ -25,7 +24,7 @@ function potts_spin_shift(elt::Type{<:Number}, ::Type{Trivial}; q=3, k=1)
     for i in 1:q
         tau[i,mod1(i - 1, q)] = one(elt)
     end
-    return tau^k
+    return TensorMap(((P_in * tau* P)^k).data,Vp←Vp)                         ### nonzero elements on the parts that intermingle between sectors
 end
 function potts_phase end
 potts_phase(; kwargs...) = potts_phase(ComplexF64, Trivial; kwargs...)
@@ -41,7 +40,7 @@ function potts_phase(elt::Type{<:Number}, ::Type{Trivial}; q=3,k=1)
     for i in 1:q
         sigma[i, i] = cis(2*pi*(i-1)/q)
     end
-    return (sigma'⊗ sigma)^k
+    return TensorMap((((P_inv*sigma*P)'⊗ (P_inv*sigma*P))^k).data,Vp⊗Vp←Vp⊗Vp)  ### nonzero elements on the parts that intermingle between sectors
 end
 
 function potts_phase_shift_combined end
@@ -62,19 +61,58 @@ function potts_phase_shift_combined(elt::Type{<:Number}, ::Type{Trivial}; q=3,k=
         tau[i,mod1(i - 1, q)] = one(elt)
         identity_e[i,i]= 1
     end
-    return (tau^k'⊗ identity_e) * (sigma'⊗ sigma)^p + (identity_e ⊗ tau^k') * (sigma'⊗ sigma)^k + (sigma'⊗ sigma)^k * (tau^p'⊗ identity_e) +  (sigma'⊗ sigma)^k * (identity_e ⊗ tau^p')
+    tau_n = P_in * tau* P
+    sigma_n = P_in * sigma* P
+    return TensorMap(((tau_n^k'⊗ identity_e) * (sigma_n'⊗ sigma_n)^p + (identity_e ⊗ tau_n^k') * (sigma_n'⊗ sigma_n)^k + (sigma_n'⊗ sigma_n)^k * (tau_n^p'⊗ identity_e) +  (sigma_n'⊗ sigma_n)^k * (identity_e ⊗ tau_n^p')).data,Vp⊗Vp←Vp⊗Vp)
 end
 
 
-### Simulating critical point lambda_c
 
 
-
+### parameters
 lambda = 0.079 + 0.060im
 J = 1
 h = 1
 Q = 5
 D= 50
+
+
+### symmetry
+using LinearAlgebra     
+Vp = Vect[ZNIrrep{5}](0=>1,1=>1,2=>1,3=>1,4 =>1)
+tau = zeros(ComplexF64,Q,Q) 
+for i in 1:Q
+    tau[i,mod1(i - 1, Q)] = 1
+end
+eigenv = eigvecs(tau)       
+pspace = ComplexSpace(Q)    
+P = TensorMap(eigenv, pspace ← pspace)      
+P_inv = TensorMap(inv(eigenv), pspace ← pspace) 
+
+
+L = 10
+
+H = @mpoham (sum(sum((-J * potts_phase(; q=Q,k=j)){i,i+1} + (-h * potts_spin_shift(; q = Q,k=j)){i} for j in 1:1:Q-1) for i in vertices(FiniteChain(L))[1:(end - 1)]))
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
                                      ##### Simulating energies
 L_list = 8:1:30
@@ -105,24 +143,3 @@ end
 using JLD2
 save_object("MPSNonHermitian_pottsq5VicVanderLinden-$N_levels,_energies.jld2", Energie_levels)
 end
-
-
-# D_list = 20:1:25
-# Ground_energy_D_scaling = zeros(ComplexF64,(25))
-# L=20
-# ###Yin Tang hamiltonian
-# H = @mpoham (sum(sum((-J * potts_phase(; q=Q,k=j)){i,i+1} + (-h * potts_spin_shift(; q = Q,k=j)){i} for j in 1:1:Q-1) for i in vertices(FiniteChain(L))[1:(end - 1)]) ##" potts model
-# +sum( -J * potts_phase(; q=Q,k=j){vertices(FiniteChain(L))[end],vertices(FiniteChain(L))[1]}+ (-h * potts_spin_shift(; q = Q,k=j)){vertices(FiniteChain(L))[end]} for j in 1:1:Q-1) ##potts model periodic bc
-# + lambda * sum( sum(sum(potts_phase_shift_combined(;q=Q,k=j,p=l){i,i+1} for l in 1:1:Q-1) for j in 1:1:Q-1)   for i in vertices(FiniteChain(L))[1:(end - 1)]) ##" additional non hermitian model
-# + lambda * sum(sum(potts_phase_shift_combined(;q=Q,k=j,p=l){vertices(FiniteChain(L))[end],vertices(FiniteChain(L))[1]} for l in 1:1:Q-1) for j in 1:1:Q-1)); ## non hermitian model periodic bc
-
-# for (i,D) in enumerate(D_list)
-#     ψ₀ = FiniteMPS(L,ℂ^Q, ℂ^D);
-#     println("start$D")
-#     (ψ, envir , delta)   = find_groundstate(ψ₀, H, DMRG(maxiter = 500,tol=1e-5, eigalg =MPSKit.Defaults.alg_eigsolve(; ishermitian=false)));
-#     Ground_energy_D_scaling[i] = expectation_value(ψ,H,envir)
-# end
-
-# p = plot(; xlabel="D", ylabel="real(E0)",title = "Energy pottsq5 in function off D")
-# plot!(p,D_list,real(Ground_energy_D_scaling),seriestype=:scatter,legend =false,ylims=(-42,-40) )
-
