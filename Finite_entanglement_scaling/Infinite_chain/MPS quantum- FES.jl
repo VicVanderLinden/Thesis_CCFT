@@ -62,12 +62,12 @@ end
 function truncr_scaling_simulations_potts(ψ₀,H,amount)
     entropies = zeros(amount)
     correlations = zeros(amount)
-    ψ, envs = find_groundstate(ψ₀, H, IDMRG1(maxiter = 500,tol=1e-5, eigalg =MPSKit.Defaults.alg_eigsolve(; ishermitian=false)));
+    ψ, envs = find_groundstate(ψ₀, H, VUMPS(maxiter = 500,tol=1e-5, alg_eigsolve =MPSKit.Defaults.alg_eigsolve(; ishermitian=false)));
     entropies[1] = real(entropy(ψ)[1])
     correlations[1] = correlation_length(ψ)
     for i in 1:1:amount-1
         ψ,envs = changebonds(ψ, H, OptimalExpand(; trscheme=truncerr(1e-5)), envs)
-        ψ, envs = find_groundstate(ψ, H, IDMRG1(maxiter = 500,tol=1e-5, eigalg =MPSKit.Defaults.alg_eigsolve(; ishermitian=false)));
+        ψ, envs = find_groundstate(ψ, H, VUMPS(maxiter = 500,tol=1e-5, alg_eigsolve =MPSKit.Defaults.alg_eigsolve(; ishermitian=false)));
         entropies[i+1] = real(entropy(ψ)[1])
         correlations[i+1] = correlation_length(ψ)
     end
@@ -83,13 +83,15 @@ end
 Q_list = [5,]
 J = 1
 h=1
-Q=5
     
+
+
 D = 10 ### begin bond dimension
-amount = 10
+amount = 5
 for Q in Q_list
+    
     ##intialize hamiltonian
-    H0 = @mpoham sum( sum((-h * potts_spin_shift(; q = Q,k=j)) for j in 1:1:Q-1){i} + sum((-J * potts_phase(; q=Q,k=j)) for j in 1:1:Q-1){i,p}  for (i,p) in nearest_neighbours(InfiniteChain()))
+    H0 = @mpoham sum( sum((-h * potts_spin_shift(; q = Q,k=j)) for j in 1:1:Q-1){i} + sum((-J * potts_phase(; q=Q,k=j)) for j in 1:1:Q-1){i,p}  for (i,p) in nearest_neighbours(InfiniteChain(1)))
     ##### Contruct the ansatz
     ψ₀ = InfiniteMPS(ℂ^Q, ℂ^D);
     Ss, ξs = truncr_scaling_simulations_potts(ψ₀, H0, amount)
