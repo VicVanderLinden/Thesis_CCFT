@@ -94,7 +94,7 @@ P_inv = TensorMap(inv(P.data), pspace ← pspace)
 L_list = [8,9,10,11,12,13]
 N_sizes = length(L_list)
 N_levels = 3 ## Gets until the N'th energie level
-# Energie_levels = zeros(ComplexF64,(N_sizes,N_levels+1))
+Energie_levels = zeros(ComplexF64,(N_sizes,N_levels+1))
 
 run = false
 if run
