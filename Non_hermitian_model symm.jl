@@ -24,7 +24,7 @@ function potts_spin_shift(elt::Type{<:Number}, ::Type{Trivial}; q=3, k=1)
     for i in 1:q
         tau[i,mod1(i - 1, q)] = one(elt)
     end
-    return (tau^k).data                        ### nonzero elements on the parts that intermingle between sectors
+    return (tau^k)                    ### nonzero elements on the parts that intermingle between sectors
 end
 function potts_phase end
 potts_phase(; kwargs...) = potts_phase(ComplexF64, Trivial; kwargs...)
@@ -40,7 +40,7 @@ function potts_phase(elt::Type{<:Number}, ::Type{Trivial}; q=3,k=1)
     for i in 1:q
         sigma[i, i] = cis(2*pi*(i-1)/q)
     end
-    return ((sigma'⊗ sigma)^k).data  
+    return ((sigma'⊗ sigma)^k)
 end
 
 function potts_phase_shift_combined end
@@ -72,7 +72,7 @@ lambda = 0.079 + 0.060im
 J = 1
 h = 1
 Q = 5
-D= 100
+D= 50
 
 
 ### symmetry
@@ -91,34 +91,49 @@ P_inv = TensorMap(inv(P.data), pspace ← pspace)
 
 
                                     ##### Simulating energies
-L_list = 8:1:13
+L_list = [8,9,10,11,12,13]
 N_sizes = length(L_list)
-N_levels = 1 ## Gets until the N'th energie level
-Energie_levels = zeros(ComplexF64,(N_sizes,N_levels+1))
+N_levels = 3 ## Gets until the N'th energie level
+# Energie_levels = zeros(ComplexF64,(N_sizes,N_levels+1))
 
-run = true
+run = false
 if run
 for (i,L) in enumerate(L_list)
 
     ###Yin Tang hamiltonian
-    H0 = @mpoham (sum(TensorMap(P_inv.data*sum((-h * potts_spin_shift(; q = Q,k=j))*P.data for j in 1:1:Q-1),Vp←Vp){i} for i in vertices(FiniteChain(L))[1:(end)])) ### Potts
-    H1 = @mpoham (sum(TensorMap((P_inv ⊗ P_inv).data*sum((-J * potts_phase(; q=Q,k=j)) for j in 1:1:Q-1)*(P ⊗ P).data, Vp⊗Vp←Vp⊗Vp){i,i+1}  for i in vertices(FiniteChain(L))[1:(end-1)]) + TensorMap((P_inv ⊗ P_inv).data*sum((-J * potts_phase(; q=Q,k=j)) for j in 1:1:Q-1)*(P ⊗ P).data, Vp⊗Vp←Vp⊗Vp){vertices(FiniteChain(L))[end],vertices(FiniteChain(L))[1]}) ##¨Potts with BC
+    H0 = @mpoham (sum(TensorMap((P_inv*sum((-h * potts_spin_shift(; q = Q,k=j)) for j in 1:1:Q-1)*P).data,Vp←Vp){i} for i in vertices(FiniteChain(L))[1:(end)])) ### Potts
+    H1 = @mpoham (sum(TensorMap(((P_inv ⊗ P_inv)*sum((-J * potts_phase(; q=Q,k=j)) for j in 1:1:Q-1)*(P ⊗ P)).data, Vp⊗Vp←Vp⊗Vp){i,i+1}  for i in vertices(FiniteChain(L))[1:(end-1)]) + TensorMap(((P_inv ⊗ P_inv)*sum((-J * potts_phase(; q=Q,k=j)) for j in 1:1:Q-1)*(P ⊗ P)).data, Vp⊗Vp←Vp⊗Vp){vertices(FiniteChain(L))[end],vertices(FiniteChain(L))[1]}) ##¨Potts with BC
     H2 =  @mpoham lambda * sum( TensorMap(((P_inv ⊗ P_inv) * sum(sum(potts_phase_shift_combined(;q=Q,k=l,p=j) for l in 1:1:Q-1) for j in 1:1:Q-1) *(P⊗P)).data,Vp⊗Vp←Vp⊗Vp){i,i+1}   for i in vertices(FiniteChain(L))[1:(end - 1)]) + lambda * sum(TensorMap(((P_inv ⊗ P_inv) * sum(potts_phase_shift_combined(;q=Q,k=l,p=j) for l in 1:1:Q-1) *(P⊗P)).data, Vp⊗Vp←Vp⊗Vp ) for j in 1:1:Q-1){vertices(FiniteChain(L))[end],vertices(FiniteChain(L))[1]} ###Extra term
     H = H0+H1+H2
-    Vleft = Vect[ZNIrrep{5}](0=>1)
-    Vright = Vect[ZNIrrep{5}](1=>1)
     ψ₀ = FiniteMPS(L,Vp,Vect[ZNIrrep{Q}](0=>D,1=>D,2=>D,3=>D,4=>D)) #;left=Vleft, right=Vright)
 
     println("start")
     (ψ, envir , delta)   = find_groundstate(ψ₀, H, DMRG(maxiter = 500,tol=1e-6, eigalg =MPSKit.Defaults.alg_eigsolve(; ishermitian=false)))
-    Energie_levels[i,1] = expectation_value(ψ,H,envir)
+    Energie_levels[i,1] = expectation_value(ψ,H)
     states = (ψ, )
-    if N_levels !=1
-      
-        En , other  = excitations(H,FiniteExcited(gsalg =DMRG(maxiter = 200,tol=1e-6, eigalg =MPSKit.Defaults.alg_eigsolve(; ishermitian=false))), states,num=N_levels);
+    if N_levels !=0
+        En, st = excitations(H, QuasiparticleAnsatz(ishermitian=false), ψ, envir; sector=ZNIrrep{5}(2),num=N_levels)
+        # En , other  = excitations(H,FiniteExcited(gsalg =QuasiparticleAnsatz(maxiter = 200,tol=1e-6, eigalg =MPSKit.Defaults.alg_eigsolve(; ishermitian=false))), states,num=N_levels);
+        println(En)
         Energie_levels[i,2:end] = En
     end
+#     Vleft = Vect[ZNIrrep{5}](1=>1)
+#     Vright = Vect[ZNIrrep{5}](3=>1)
+#     ψ₀ = FiniteMPS(L,Vp,Vect[ZNIrrep{Q}](0=>D,1=>D,2=>D,3=>D,4=>D);left=Vleft, right=Vright)
+#     (ψ, envir , delta)   = find_groundstate(ψ₀, H, DMRG(maxiter = 500,tol=1e-5, eigalg =MPSKit.Defaults.alg_eigsolve(; ishermitian=false)))
+#     Energie_levels[i,2] = expectation_value(ψ,H)
+    
+
+
+    #### Other Hamiltonian ####
+    # H = @mpoham (sum(sum((-J * potts_phase(; q=Q,k=j)){i,i+1} + (-h * potts_spin_shift(; q = Q,k=j)){i} for j in 1:1:Q-1) for i in vertices(FiniteChain(L))[1:(end - 1)]) ##" potts model
+    # +sum( -J * potts_phase(; q=Q,k=j){vertices(FiniteChain(L))[end],vertices(FiniteChain(L))[1]}+ (-h * potts_spin_shift(; q = Q,k=j)){vertices(FiniteChain(L))[end]} for j in 1:1:Q-1) ##potts model periodic bc
+    # + lambda * sum( sum(sum(potts_phase_shift_combined(;q=Q,k=j,p=l){i,i+1} for l in 1:1:Q-1) for j in 1:1:Q-1)   for i in vertices(FiniteChain(L))[1:(end - 1)]) ##" additional non hermitian model
+    # + lambda * sum(sum(potts_phase_shift_combined(;q=Q,k=j,p=l){vertices(FiniteChain(L))[end],vertices(FiniteChain(L))[1]} for l in 1:1:Q-1) for j in 1:1:Q-1)); ## non hermitian model periodic bc
+    # ψ₀ = FiniteMPS(L,ℂ^Q, ℂ^D);
+    # (ψ, envir , delta)   = find_groundstate(ψ₀, H, DMRG(maxiter = 500,tol=1e-6, eigalg =MPSKit.Defaults.alg_eigsolve(; ishermitian=false)))
+    # Energie_levels[i,2] = expectation_value(ψ,H)
 end
 using JLD2
-save_object("MPSNonHermitian_pottsq5excited-N$N_levels,D$D,energies.jld2", Energie_levels)
+save_object("QuasiparticleAnsatz-MPSNonHermitian_pottsq$Q excited-N$N_levels,D$D,energies-L$L_list, sector2.jld2", Energie_levels)
 end
