@@ -68,11 +68,11 @@ end
 
 
 ### parameters
-lambda = 0.079 + 0.060im
+lambda = 0.068 + 0.058im
 J = 1
 h = 1
 Q = 5
-D= 50
+D= 100
 
 
 ### symmetry
@@ -91,12 +91,12 @@ P_inv = TensorMap(inv(P.data), pspace ← pspace)
 
 
                                     ##### Simulating energies
-L_list = [8,9,10,11,12,13]
+L_list = [9,10,11,12]
 N_sizes = length(L_list)
-N_levels = 3 ## Gets until the N'th energie level
-Energie_levels = zeros(ComplexF64,(N_sizes,N_levels+1))
+N_levels = 5 ## Gets until the N'th energie level
+Energie_levels = zeros(ComplexF64,(N_sizes,N_levels))
 
-run = false
+run = true
 if run
 for (i,L) in enumerate(L_list)
 
@@ -112,7 +112,7 @@ for (i,L) in enumerate(L_list)
     Energie_levels[i,1] = expectation_value(ψ,H)
     states = (ψ, )
     if N_levels !=0
-        En, st = excitations(H, QuasiparticleAnsatz(ishermitian=false), ψ, envir; sector=ZNIrrep{5}(2),num=N_levels)
+        En, st = excitations(H, QuasiparticleAnsatz(ishermitian=false), ψ, envir; sector=ZNIrrep{5}(1),num=N_levels)
         # En , other  = excitations(H,FiniteExcited(gsalg =QuasiparticleAnsatz(maxiter = 200,tol=1e-6, eigalg =MPSKit.Defaults.alg_eigsolve(; ishermitian=false))), states,num=N_levels);
         println(En)
         Energie_levels[i,2:end] = En
@@ -135,5 +135,5 @@ for (i,L) in enumerate(L_list)
     # Energie_levels[i,2] = expectation_value(ψ,H)
 end
 using JLD2
-save_object("QuasiparticleAnsatz-MPSNonHermitian_pottsq$Q excited-N$N_levels,D$D,energies-L$L_list, sector2.jld2", Energie_levels)
+save_object("QuasiparticleAnsatz-MPSNonHermitian_pottsq$Q excited-N$N_levels,D$D,energies-L$L_list, sector0_lambda.jld2", Energie_levels)
 end
