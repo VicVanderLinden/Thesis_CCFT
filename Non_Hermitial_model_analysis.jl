@@ -3,7 +3,7 @@ using JLD2
 using Plots
 using Polynomials
 data = load_object("Ground_state_MPSNonHermitian_pottsq5 excited-N0,D100,energies-L[8, 9, 10, 11, 12].jld2")
-
+data2 = load_object("non_sym_Ground_state_MPSNonHermitian_pottsq5 excited-N0,D100,energies-L[8, 9, 10, 11, 12].jld2")
 
 
 #####################################Energie levels #################
@@ -91,31 +91,48 @@ data = load_object("Ground_state_MPSNonHermitian_pottsq5 excited-N0,D100,energie
 
 
 ################################## central charge ########################################
-L_list = 8:1:12
-D=100
-x_values = 1 ./L_list.^2
-divided_energies = similar(L_list,ComplexF64)
-E_gap = similar(L_list,ComplexF64)
-for j in 1:1:length(L_list)
-    divided_energies[j] = data[j][1]/L_list[j]
-end
+# L_list = 8:1:12
+# D=100
+# x_values = 1 ./L_list.^2
+# divided_energies = similar(L_list,ComplexF64)
+# E_gap = similar(L_list,ComplexF64)
+# for j in 1:1:length(L_list)
+#     divided_energies[j] = data[j][1]/L_list[j]
+# end
 
-f = fit(x_values, real(divided_energies), 1)
-c = f.coeffs[2]
-println(c)
-p = plot(; xlabel="1/L²", ylabel="Re(E0/L)", xlim = (0,0.025), ylim = (-4.25,-4.21))
-p = plot!(x_values,real(divided_energies) ; seriestype=:scatter)
-plot!(p, x_values -> f(x_values); label="fit real(a) = $c")
-savefig(p,"Real Energy scaling L=[8,9,10,11,12,13], D = $D.png")
-
-
-f = fit(x_values, real(-im*divided_energies), 1)
-c = f.coeffs[2]
-println(c)
-p = plot(; xlabel="1/L²", ylabel="Im(E0/L)", xlim = (0,0.025), ylim = (-0.284,-0.274))
-p = plot!(x_values,real(-im.*divided_energies) ; seriestype=:scatter)
-plot!(p, x_values -> f(x_values); label="fit real(a) = $c")
-savefig(p,"Imaginary Energy scaling L=[8,9,10,11,12,13], D= $D.png")
+# f = fit(x_values, real(divided_energies), 1)
+# c = f.coeffs[2]
+# println(c)
+# p = plot(; xlabel="1/L²", ylabel="Re(E0/L)", xlim = (0,0.025), ylim = (-4.25,-4.21))
+# p = plot!(x_values,real(divided_energies) ; seriestype=:scatter)
+# plot!(p, x_values -> f(x_values); label="fit real(a) = $c")
+# savefig(p,"Real Energy scaling L=[8,9,10,11,12,13], D = $D.png")
 
 
+# f = fit(x_values, real(-im*divided_energies), 1)
+# c = f.coeffs[2]
+# println(c)
+# p = plot(; xlabel="1/L²", ylabel="Im(E0/L)", xlim = (0,0.025), ylim = (-0.284,-0.274))
+# p = plot!(x_values,real(-im.*divided_energies) ; seriestype=:scatter)
+# plot!(p, x_values -> f(x_values); label="fit real(a) = $c")
+# savefig(p,"Imaginary Energy scaling L=[8,9,10,11,12,13], D= $D.png")
 
+
+
+### Model comparison
+# L_list = 8:1:12
+# D=100
+# x_values = 1 ./L_list.^2
+# energie_diff = similar(L_list,ComplexF64)
+
+# for j in 1:1:length(L_list)
+#     energie_diff[j]  = (data[j][1]-data2[j][1])
+# end
+
+# p = plot(; xlabel="L", ylabel="Re(E0_z5 - E0)")
+# p = plot!(L_list,real(energie_diff) ; seriestype=:scatter)
+# savefig(p,"E diff between Z5 symmetric L=[8,9,10,11,12], D = $D.png")
+
+# q = plot(; xlabel="L", ylabel="im(E0_z5 - E0)")
+# q = plot!(L_list,real(-im.*energie_diff) ; seriestype=:scatter)
+# savefig(q,"Im E diff between Z5 symmetric L=[8,9,10,11,12], D = $D.png")
