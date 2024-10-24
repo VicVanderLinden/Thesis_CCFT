@@ -57,7 +57,7 @@ function potts_phase_shift_combined(elt::Type{<:Number}, ::Type{Trivial}; q=3,k=
         tau[i,mod1(i - 1, q)] = one(elt)
         identity_e[i,i]= 1
     end
-    return (tau^k'⊗ identity_e) * (sigma'⊗ sigma)^p + (identity_e ⊗ tau^k') * (sigma'⊗ sigma)^k + (sigma'⊗ sigma)^k * (tau^p'⊗ identity_e) +  (sigma'⊗ sigma)^k * (identity_e ⊗ tau^p')
+    return (tau^k'⊗ identity_e) * (sigma'⊗ sigma)^p + (identity_e ⊗ tau^k') * (sigma'⊗ sigma)^p + (sigma'⊗ sigma)^k * (tau^p'⊗ identity_e) +  (sigma'⊗ sigma)^k * (identity_e ⊗ tau^p')
 end
 
 J = 1
