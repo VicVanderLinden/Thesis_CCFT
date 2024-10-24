@@ -13,15 +13,15 @@ lambda = 0.079 + 0.060im
 J = 1
 h = 1
 Q = 5
-D= 50
+D= 100
 
                                      ##### Simulating energies
-L_list = 8:1:30
+L_list = [8,9,10,11,12]
 N_sizes = length(L_list)
 N_levels = 0 ## Gets until the N'th energie level
 Energie_levels = Vector{ComplexF64}[]
 
-run = false
+run = true
 if run
 for (i,L) in enumerate(L_list)
 
@@ -29,7 +29,7 @@ for (i,L) in enumerate(L_list)
     H = Potts_Hamiltonian(L; sym=false)
     ψ₀ = FiniteMPS(L,ℂ^Q, ℂ^D);
     println("start")
-    (ψ, envir , delta) = find_groundstate(ψ₀, H, DMRG(maxiter = 500,tol=1e-6, eigalg =MPSKit.Defaults.alg_eigsolve(; ishermitian=false)))
+    (ψ, envir , delta) = find_groundstate(ψ₀, H, DMRG(maxiter = 500,tol=8e-5, eigalg =MPSKit.Defaults.alg_eigsolve(; ishermitian=false)))
     Ground_energy = expectation_value(ψ,H)
     states = (ψ, )
     if N_levels !=0
@@ -46,7 +46,7 @@ for (i,L) in enumerate(L_list)
         push!(Energie_levels,[Ground_energy])
     end
 end
-save_object("Ground_state_MPSNonHermitian_pottsq$Q excited-N$N_levels,D$D,energies-L$L_list.jld2", Energie_levels)
+save_object("non_sym_Ground_state_MPSNonHermitian_pottsq$Q excited-N$N_levels,D$D,energies-L$L_list.jld2", Energie_levels)
 end
 
 

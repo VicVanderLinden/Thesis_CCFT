@@ -62,7 +62,7 @@ end
 
 
 ### model parameters
-function Potts_Hamiltonian(L; J=1,h=1,Q=5,lambda=0.079 - 0.060im,sym=true)
+function Potts_Hamiltonian(L; J=1,h=1,Q=5,lambda=0.079 + 0.060im,sym=true)
     ### symmetry
     if sym       
         T = zeros(ComplexF64,Q,Q)           
