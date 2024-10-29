@@ -13,7 +13,7 @@ Q = 5
 Vp = Vect[ZNIrrep{Q}](0=>1,1=>1,2=>1,3=>1,4=>1)  
 L_list = [8,9,10,11,12]
 N_sizes = length(L_list)
-N_levels = 0 ## Gets until the N'th energie level
+N_levels = 4 ## Gets until the N'th energie level
 Energie_levels = Vector{ComplexF64}[]
 
 function run_sum()
@@ -47,4 +47,4 @@ function run_sum()
     end
     save_object("Ground_state_MPSNonHermitian_pottsq$Q excited-N$N_levels,D$D,energies-L$L_list.jld2", Energie_levels)
 end
-run_sum()
+run_sum()   
