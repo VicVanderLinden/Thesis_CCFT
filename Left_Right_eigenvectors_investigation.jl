@@ -3,21 +3,59 @@ using MPSKit
 using KrylovKit
 const Selector = Union{Symbol,EigSorter}
 include("Potts-Operators & Hamiltonian.jl")
-function ∂∂AC(pos::Int, mps, opp::Union{MPOHamiltonian,SparseMPO,DenseMPO}, cache)
-    return MPO_∂∂AC(cache.opp[pos], leftenv(cache, pos, mps), rightenv(cache, pos, mps))
-end
-import KrylovKit: Arnoldi
 using LinearAlgebra
-struct MPO_∂∂AC{O,L,R}
-o::O
-leftenv::L
-rightenv::R
-end
-
 const maxiter = 200
 const tolgauge = 1e-13
-const tol = 1e-20
+const tol = 1e-10
 const eigsolver = Arnoldi(; tol, maxiter, eager=true,verbosity=3)
+using KrylovKit: KrylovIterator, KrylovFactorization, OrthonormalBasis, Orthogonalizer, apply, zerovector, PackedHessenberg
+
+### changing the arnoldi iterator to allow for krylov-shur form where b vector is not limited to ek
+# # NEW! Arnoldi recurrence: simply use provided orthonormalization routines
+# function arnoldirecurrence!!(operator,
+#     V::OrthonormalBasis,
+#     h::AbstractVector,
+#     orth::Orthogonalizer)
+# v = apply(operator, last(V))
+# ## this part is different since i need w = V'* v
+# w = [V.basis[i]'*v for i in 1:length(V.basis)]
+# v = v - [sum(V.basis[j][i]*w[j] for j in 1:length(w)) for i in 1:length(V.basis[1])] 
+# β  = norm(v)
+# h = w 
+# return v, β
+# end
+
+D=5
+L=4
+Q = 5
+J = 1
+h= 1
+lambda = 0.079 +  0.060im
+function eye(m)
+    return Matrix{ComplexF64}(I,m,m)
+end
+
+function H_potts_matrix(L,Q=5)
+    Potts_H = zeros(ComplexF64,Q^L,Q^L)
+    for i in 1:L-1
+        Potts_H +=  kron(kron(eye(Q^(i-1)),sum((-J * potts_phase(; q=Q,k=j)).data for j in 1:1:Q-1) + lambda*sum(sum(potts_phase_shift_combined(;q=Q,k=j,p=l).data for l in 1:1:Q-1) for j in 1:1:Q-1)), eye(Q^(L-i-1)))+ kron(kron(eye(Q^(i-1)),sum((-h * potts_spin_shift(; q = Q,k=j)).data for j in 1:1:Q-1)),eye(Q^(L-i))) 
+    end
+    Potts_H += kron(eye(Q^(L-1)),sum((-h * potts_spin_shift(; q = Q,k=j)).data for j in 1:1:Q-1))
+    
+    
+    
+    ## bc
+    sigma = zeros(ComplexF64,Q,Q)
+    tau = zeros(ComplexF64,Q,Q)
+    for i in 1:Q
+        sigma[i, i] = cis(2*pi*(i-1)/Q)
+        tau[i,mod1(i - 1, Q)] = 1
+    end
+    Potts_H += sum(kron(kron(sigma^k,eye(Q^(L-2))),sigma^k') for k in 1:1:Q-1)
+    Potts_H += lambda *sum(sum(  kron(kron(sigma^p, eye(Q^(L-2))), tau'^k * sigma'^p) + kron(kron(tau'^k*sigma^p, eye(Q^(L-2))), sigma'^p) + kron(kron(sigma^k, eye(Q^(L-2))), sigma'^k *tau'^p) + kron(kron(sigma^k*tau'^k, eye(Q^(L-2))), sigma'^k)  for k in 1:1:Q-1) for p in 1:1:Q-1)
+    return Potts_H
+end
+
 function _schursolve_2sided(A,Astar, x₀, howmany::Int, which::Selector,alg::Arnoldi)
  
     krylovdim = 30
@@ -64,6 +102,8 @@ function _schursolve_2sided(A,Astar, x₀, howmany::Int, which::Selector,alg::Ar
             end
         end
         if K == krylovdim 
+
+        
             ### Rigth
             H = view(HH, 1:K, 1:K)
             U= view(UU, 1:K, 1:K)
@@ -71,33 +111,33 @@ function _schursolve_2sided(A,Astar, x₀, howmany::Int, which::Selector,alg::Ar
             f = view(HH, K + 1, 1:K)
             copyto!(U, I) 
             copyto!(H, rayleighquotient(fact)) # Rayleigh quotient in this context is the H in the factorization
-            f = fact.H[end-K:end-1]
+            f =  mul!(f,view(U, K, :),β)
             ### Left
             H_im = view(HH_im, 1:K, 1:K)
             U_im= view(UU_im, 1:K, 1:K)
             W = fact_im.V
-            f_im = fact_im.H[end-K:end-1]
+            f_im = view(HH_im, K + 1, 1:K)
             copyto!(U_im, I)
             copyto!(H_im, rayleighquotient(fact_im)) # Rayleigh quotient in this context is the K in the factorization
+            f_im = mul!(f_im,view(U_im, K, :),β_im)
             
             ## Changing the rayleighquotients before decomposing
-            W_star = [W.basis[i]' for i in 1:length(W.basis)] ### is important that each element becomes adjoint
-            V_star = [V.basis[i]' for i in 1:length(V.basis)]
+    
             W_star_V = Matrix{ComplexF64}(undef,krylovdim,krylovdim)
-            W_V_star = Matrix{ComplexF64}(undef,krylovdim,krylovdim)
+            V_star_W = Matrix{ComplexF64}(undef,krylovdim,krylovdim)
             for i in 1:krylovdim
                 for j in 1:krylovdim
-                    W_star_V[i,j] =(W_star[i]*V.basis[j])
-                    W_V_star[i,j] =(V_star[j]*W.basis[i])
+                    W_star_V[i,j] =(W.basis[i]'*V.basis[j])
+                    V_star_W[i,j] =(V.basis[i]'*W.basis[j])
                 end
             end
             M = inv(W_star_V)
-            M_star = inv(W_V_star)
+            M_star = inv(V_star_W)
             W_star_r = Vector{ComplexF64}(undef,krylovdim)
             V_star_r = Vector{ComplexF64}(undef,krylovdim)
             for i in 1:krylovdim
-                W_star_r[i] = W_star[i]*fact.r
-                V_star_r[i] = V_star[i]*fact_im.r
+                W_star_r[i] = W.basis[i]'*fact.r
+                V_star_r[i] = V.basis[i]'*fact_im.r
             end
          
         
@@ -107,39 +147,39 @@ function _schursolve_2sided(A,Astar, x₀, howmany::Int, which::Selector,alg::Ar
             H_im = H_im + M_star *V_star_r*f_im'
             
             ## vl+1 and wl+1
-            V_M_W_star = sum(sum(V.basis[i]*M[i,j]*W_star[j] for i in 1:krylovdim) for j in 1:krylovdim)
-            W_M_star_V_star = sum(sum(W.basis[i]*M_star[i,j]*V_star[j] for i in 1:krylovdim) for j in 1:krylovdim)
+            V_M_W_star = sum(sum(V.basis[i]*M[i,j]*W.basis[j]' for i in 1:krylovdim) for j in 1:krylovdim)
+            W_M_star_V_star = sum(sum(W.basis[i]*M_star[i,j]*V.basis[j]' for i in 1:krylovdim) for j in 1:krylovdim)
             fact.r = (I - V_M_W_star)*fact.r
             fact_im.r = (I - W_M_star_V_star)*fact_im.r
-            
+        
             
             # compute dense schur factorization
             T, U, values = KrylovKit.hschur!(H, U)   ### U is Q, T is S in the paper https://ianzwaan.com/assets/pdf/kstwo.pdf
             by, rev =  KrylovKit.eigsort(which)
             p =  KrylovKit.sortperm(values; by=by, rev=rev)
             T, U =  KrylovKit.permuteschur!(T, U, p)
-            f = [sum(U'[i,j]*f[i] for i in 1:K) for j in 1:K]
-    
+            f =  [sum(U'[i,j]*f[i] for i in 1:1:krylovdim) for j in 1:1:krylovdim]
+
+
+
             # compute dense schur factorization
             T_im, U_im, values = KrylovKit.hschur!(H_im, U_im)   ### U is Z, T is T in the paper https://ianzwaan.com/assets/pdf/kstwo.pdf
             by, rev =  KrylovKit.eigsort(which)
             p =  KrylovKit.sortperm(values; by=by, rev=rev)
             T_im, U_im =  KrylovKit.permuteschur!(T_im, U_im, p)
-            f_im = [sum(U_im'[i,j]*f_im[i] for i in 1:K) for j in 1:K]
+            f_im =  [sum(U_im'[i,j]*f_im[i] for i in 1:1:krylovdim) for j in 1:1:krylovdim]
 
-        
+
             ### eigenvalue_criteria
-            c = eigvecs(H)
-            d = eigvecs(H_im)
-            r = [norm(fact.r)*abs(f'*c[:,i]) for i in 1:krylovdim]
-            s = [norm(fact_im.r)*abs(f_im'*d[:,i]) for i in 1:krylovdim]
+            c = eigvecs(T)  
+            d = eigvecs(T_im)
+            r = [norm(fact.r)*abs(sum(f'[j]*c[j,i] for j in 1:krylovdim)) for i in 1:krylovdim]
+            s = [norm(fact_im.r)*abs(sum(f_im'[j]*d[j,i] for j in 1:krylovdim)) for i in 1:krylovdim]
             kappa = [1/abs(W.basis[i]'*V.basis[i]) for i in 1:krylovdim]
             rho = [abs((W.basis[i]' * A * V.basis[i])/(W.basis[i]'*V.basis[i])) for i in 1:krylovdim]
-            
             ### checking if the remaining basis vectors are small enough
             converged = 0
-         
-            while converged < length(fact) && (kappa[converged+1]/rho[converged+1] * max(r[converged+1],s[converged+1])) <= tol
+            while converged < length(fact) && (kappa[converged+1]/abs(rho[converged+1]) * max(r[converged+1],s[converged+1])) <= tol
                 converged += 1
             end
             
@@ -178,9 +218,7 @@ function _schursolve_2sided(A,Astar, x₀, howmany::Int, which::Selector,alg::Ar
                     error("krylov dimension $(krylovdim) too small to compute $howmany eigenvalues")
             end    
 
-
-
-            # Restore Arnoldi form in the first keep columns Set Vm = V`Q1, Hm = S11, hm = Q∗1b`.    Set Wm = W`Z1, Km = T11, km = Z∗1 c`
+            ##Set Vm = V`Q1, Hm = S11,.    Set Wm = W`Z1, Km = T11,
             vl1 = fact.r
             wl1 = fact_im.r
 
@@ -189,11 +227,12 @@ function _schursolve_2sided(A,Astar, x₀, howmany::Int, which::Selector,alg::Ar
             KrylovKit.basistransform!(B, view(U, :, 1:keep))
             B_im = basis(fact_im)
             KrylovKit.basistransform!(B_im, view(U_im, :, 1:keep))
-            B[keep+1] = residual(fact)/normres(fact)
-
-           
-            vm1 = (I - fact.V.basis[1:keep]'*fact.V.basis[1:keep])* vl1
-            wm1 =  (I - fact_im.V.basis[1:keep]'*fact_im.V.basis[1:keep])* wl1
+          
+            ## vl+1
+            vm1 = (I - B[1:keep]'*B[1:keep])* vl1
+            wm1 =  (I - B_im[1:keep]'*B_im[1:keep])* wl1
+            fact.r = (vm1)/norm(vm1)
+            fact_im.r =  (wm1)/norm(wm1)
             V_star_vl1_h = Matrix{ComplexF64}(undef,keep,keep)
             W_star_wl1_h =  Matrix{ComplexF64}(undef,keep,keep)
             for i in 1:keep
@@ -204,31 +243,60 @@ function _schursolve_2sided(A,Astar, x₀, howmany::Int, which::Selector,alg::Ar
             end
   
 
-            # H and h (and orthogonalizing)
-            copyto!(H[1:keep,1:keep],T[1:keep,1:keep] + V_star_vl1_h )
-            copyto!(H[keep+1,1:keep],f[1:keep]*norm(vm1))
-            copyto!(H_im[1:keep,1:keep],T_im[1:keep,1:keep] +W_star_wl1_h)
-            copyto!(H_im[keep+1,1:keep],f_im[1:keep]*norm(wm1)) 
+            # orthogonalize H
+            H[1:keep,1:keep] = T[1:keep,1:keep] + V_star_vl1_h 
+            H_im[1:keep,1:keep] = T_im[1:keep,1:keep] +W_star_wl1_h
+
+            f[1:keep] = f[1:keep]*norm(vm1)
+            f_im = f_im[1:keep]*norm(wm1)
+    
+          
+
+            
+            ### Put H back in a hessenberg form
+            copyto!(U, I) ### these are set back to one since the transformation has been done already
+            copyto!(U_im, I)
+            @inbounds for j in 1:keep
+                H[keep + 1, j] = f[j]
+                H_im[keep + 1, j] = f_im[j]
+            end
+            @inbounds for j in keep:-1:1
+                h, ν = KrylovKit.householder(H, j + 1, 1:j, j)
+                H[j + 1, j] = ν
+                H[j + 1, 1:(j - 1)] .= 0
+                lmul!(h, H)
+                rmul!(view(H, 1:j, :), h')
+                rmul!(U, h')
+
+                h, ν = KrylovKit.householder(H_im, j + 1, 1:j, j)
+                H_im[j + 1, j] = ν
+                H_im[j + 1, 1:(j - 1)] .= 0
+                lmul!(h, H_im)
+                rmul!(view(H_im, 1:j, :), h')
+                rmul!(U_im, h')
+            end
+            copyto!(rayleighquotient(fact), H) # copy back into fact
+            copyto!(rayleighquotient(fact_im), H_im) # copy back into fact
+            KrylovKit.basistransform!(B, view(U, :, 1:keep))
+            r = residual(fact)
+            B[keep + 1] = scale!!(r, 1 / normres(fact))
+            KrylovKit.basistransform!(B_im, view(U_im, :, 1:keep))
+            r = residual(fact_im)
+            B_im[keep + 1] = scale!!(r, 1 / normres(fact_im))
 
             #shrinking
             shrink!(fact,keep)
             shrink!(fact_im,keep)
-             
-            copyto!(rayleighquotient(fact), H[1:keep][1:keep])
-            copyto!(rayleighquotient(fact_im), H_im[1:keep][1:keep])
-           
-            H_repacked = [H[i,j] for j in 1:keep-1 for i in 1:j+1]
-            H_repacked = append!(H_repacked, H[keep+1,1:keep])
-            H_repacked = append!(H_repacked,norm(vm1))
-            fact.H = H_repacked
-            H_repacked = [H_im[i,j] for j in 1:keep-1 for i in 1:j+1]
-            H_repacked = append!(H_repacked, H_im[keep+1,1:keep])
-            H_repacked = append!(H_repacked,norm(wm1))
-            fact_im.H = H_repacked
-            fact.r = (vm1)/norm(vm1)
-            fact_im.r =  (wm1)/norm(wm1)
 
-            K = keep     
+            # #state.H
+            # H_repacked = [H[i,j] for j in 1:keep-1 for i in 1:j+1]
+            # H_repacked = append!(H_repacked, H[keep+1,1:keep])
+            # H_repacked = append!(H_repacked,norm(vm1)*norm(f))
+            # fact.H = H_repacked
+            # H_repacked = [H_im[i,j] for j in 1:keep-1 for i in 1:j+1]
+            # H_repacked = append!(H_repacked, H_im[keep+1,1:keep])
+            # H_repacked = append!(H_repacked,norm(wm1)*norm(f_im))
+            # fact_im.H = H_repackeg
             numiter += 1
         end
 
@@ -239,12 +307,12 @@ function _schursolve_2sided(A,Astar, x₀, howmany::Int, which::Selector,alg::Ar
             numops += 1 
         end
     end
-    return T, U,T_im,U_im, converged, numiter, numops
+    return T, U, T_im, U_im, converged, numiter, numops
 end
 
 
 D=5
-L=5
+L=4
 Q = 5
 J = 1
 h= 1
@@ -273,13 +341,19 @@ function H_potts_matrix(L,Q=5)
     Potts_H += lambda *sum(sum(  kron(kron(sigma^p, eye(Q^(L-2))), tau'^k * sigma'^p) + kron(kron(tau'^k*sigma^p, eye(Q^(L-2))), sigma'^p) + kron(kron(sigma^k, eye(Q^(L-2))), sigma'^k *tau'^p) + kron(kron(sigma^k*tau'^k, eye(Q^(L-2))), sigma'^k)  for k in 1:1:Q-1) for p in 1:1:Q-1)
     return Potts_H
 end
+
+
+
+
+
+
 L = 4
-A = H_potts_matrix(4)
+A = H_potts_matrix(L)
 x₀ = rand(ComplexF64,Q^L)
 x₀ = x₀/sqrt(inner(x₀,x₀))
-T, UU,T_im,UU_im,info,_,_ = _schursolve_2sided(A,A',x₀,2,:SR,eigsolver)
-println(T[1,1])
-println(T_im[1,1])
+T, UU,T_im,UU_im,info,_,_ = _schursolve_2sided(A,A',x₀,1,:SR,eigsolver)
+println([T[i,i] for i in 1:1:6])
+println([T_im[i,i] for i in 1:1:6])
 
 
 
