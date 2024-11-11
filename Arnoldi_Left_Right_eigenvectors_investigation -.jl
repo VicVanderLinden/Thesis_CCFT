@@ -90,7 +90,7 @@ function _schursolve_2sided(A,Astar, x₀, howmany::Int, which::Selector,alg::Ar
     # initialize storage, same dimension on decomposition
     K = length(fact) # == 1
     converged = 0
-    local T, U,T_im,U_im
+    local T, U,T_im,U_im,c,d
     while true
         β = normres(fact)
         β_im = normres(fact_im)
@@ -170,18 +170,46 @@ function _schursolve_2sided(A,Astar, x₀, howmany::Int, which::Selector,alg::Ar
             f_im =  [sum(U_im'[i,j]*f_im[i] for i in 1:1:krylovdim) for j in 1:1:krylovdim]
 
 
+            #Vl
+            B = basis(fact)
+            KrylovKit.basistransform!(B, view(U, :, 1:K))
+            B_im = basis(fact_im)
+            KrylovKit.basistransform!(B_im, view(U_im, :, 1:K))
+            
+
             ### eigenvalue_criteria
             c = eigvecs(T)  
             d = eigvecs(T_im)
+            
+            artifacts = 0
+            for i in 1:howmany
+                if abs(T[i,i] -T_im[i,i]') >= 1
+                    artifacts+=1
+                    T[i,i] = T[howmany+artifacts,howmany+artifacts]
+                    T_im[i,i] = T_im[howmany+artifacts,howmany+artifacts]
+                    c[i,i] = c[howmany+artifacts,howmany+artifacts]
+                    d[i,i] = d[howmany+artifacts,howmany+artifacts]
+                    f[i] = f[howmany+artifacts]
+                    f_im[i] = f_im[howmany+artifacts]
+                    V.basis[i] = V.basis[howmany+artifacts]
+                    W.basis[i] = W.basis[howmany+artifacts]
+                    i = 1
+                end
+            end
+
+        
+            
             r = [norm(fact.r)*abs(sum(f'[j]*c[j,i] for j in 1:krylovdim)) for i in 1:krylovdim]
             s = [norm(fact_im.r)*abs(sum(f_im'[j]*d[j,i] for j in 1:krylovdim)) for i in 1:krylovdim]
             kappa = [1/abs(W.basis[i]'*V.basis[i]) for i in 1:krylovdim]
             rho = [abs((W.basis[i]' * A * V.basis[i])/(W.basis[i]'*V.basis[i])) for i in 1:krylovdim]
             ### checking if the remaining basis vectors are small enough
+
             converged = 0
             while converged < length(fact) && (kappa[converged+1]/abs(rho[converged+1]) * max(r[converged+1],s[converged+1])) <= tol
                 converged += 1
             end
+            converged = converged - artifacts
             
             ### not sure whats happening here, check for singular vectors?
             # if eltype(T) <: Real &&
@@ -222,11 +250,6 @@ function _schursolve_2sided(A,Astar, x₀, howmany::Int, which::Selector,alg::Ar
             vl1 = fact.r
             wl1 = fact_im.r
 
-            #Vl
-            B = basis(fact)
-            KrylovKit.basistransform!(B, view(U, :, 1:keep))
-            B_im = basis(fact_im)
-            KrylovKit.basistransform!(B_im, view(U_im, :, 1:keep))
           
             ## vl+1
             vm1 = (I - B[1:keep]'*B[1:keep])* vl1
@@ -242,61 +265,78 @@ function _schursolve_2sided(A,Astar, x₀, howmany::Int, which::Selector,alg::Ar
                 end
             end
   
+            #################### METHOD 1, householder symmetry to bring back in hessenberg form
+            # # orthogonalize H
+            # H[1:keep,1:keep] = T[1:keep,1:keep] + V_star_vl1_h 
+            # H_im[1:keep,1:keep] = T_im[1:keep,1:keep] +W_star_wl1_h
 
-            # orthogonalize H
-            H[1:keep,1:keep] = T[1:keep,1:keep] + V_star_vl1_h 
-            H_im[1:keep,1:keep] = T_im[1:keep,1:keep] +W_star_wl1_h
-
-            f[1:keep] = f[1:keep]*norm(vm1)
-            f_im = f_im[1:keep]*norm(wm1)
+            # f[1:keep] = f[1:keep]*norm(vm1)
+            # f_im = f_im[1:keep]*norm(wm1)
     
           
 
             
-            ### Put H back in a hessenberg form
-            copyto!(U, I) ### these are set back to one since the transformation has been done already
-            copyto!(U_im, I)
-            @inbounds for j in 1:keep
-                H[keep + 1, j] = f[j]
-                H_im[keep + 1, j] = f_im[j]
-            end
-            @inbounds for j in keep:-1:1
-                h, ν = KrylovKit.householder(H, j + 1, 1:j, j)
-                H[j + 1, j] = ν
-                H[j + 1, 1:(j - 1)] .= 0
-                lmul!(h, H)
-                rmul!(view(H, 1:j, :), h')
-                rmul!(U, h')
+            # ### Put H back in a hessenberg form
+            # copyto!(U, I) ### these are set back to one since the transformation has been done already
+            # copyto!(U_im, I)
+            # @inbounds for j in 1:keep
+            #     H[keep + 1, j] = f[j]
+            #     H_im[keep + 1, j] = f_im[j]
+            # end
+            # @inbounds for j in keep:-1:1
+            #     h, ν = KrylovKit.householder(H, j + 1, 1:j, j)
+            #     H[j + 1, j] = ν
+            #     H[j + 1, 1:(j - 1)] .= 0
+            #     lmul!(h, H)
+            #     rmul!(view(H, 1:j, :), h')
+            #     rmul!(U, h')
 
-                h, ν = KrylovKit.householder(H_im, j + 1, 1:j, j)
-                H_im[j + 1, j] = ν
-                H_im[j + 1, 1:(j - 1)] .= 0
-                lmul!(h, H_im)
-                rmul!(view(H_im, 1:j, :), h')
-                rmul!(U_im, h')
-            end
-            copyto!(rayleighquotient(fact), H) # copy back into fact
-            copyto!(rayleighquotient(fact_im), H_im) # copy back into fact
-            KrylovKit.basistransform!(B, view(U, :, 1:keep))
-            r = residual(fact)
-            B[keep + 1] = scale!!(r, 1 / normres(fact))
-            KrylovKit.basistransform!(B_im, view(U_im, :, 1:keep))
-            r = residual(fact_im)
-            B_im[keep + 1] = scale!!(r, 1 / normres(fact_im))
+            #     h, ν = KrylovKit.householder(H_im, j + 1, 1:j, j)
+            #     H_im[j + 1, j] = ν
+            #     H_im[j + 1, 1:(j - 1)] .= 0
+            #     lmul!(h, H_im)
+            #     rmul!(view(H_im, 1:j, :), h')
+            #     rmul!(U_im, h')
+            # end
+            # copyto!(rayleighquotient(fact), H) # copy back into fact
+            # copyto!(rayleighquotient(fact_im), H_im) # copy back into fact
+            # KrylovKit.basistransform!(B, view(U, :, 1:keep))
+            # r = residual(fact)
+            # B[keep + 1] = scale!!(r, 1 / normres(fact))
+            # KrylovKit.basistransform!(B_im, view(U_im, :, 1:keep))
+            # r = residual(fact_im)
+            # B_im[keep + 1] = scale!!(r, 1 / normres(fact_im))
 
+            # #shrinking
+            # shrink!(fact,keep)
+            # shrink!(fact_im,keep)
+            
+            ## Method 2, explicit shrinking 
+
+            # H and h (and orthogonalizing)
+            copyto!(H[1:keep,1:keep],T[1:keep,1:keep] + V_star_vl1_h )
+            copyto!(H[keep+1,1:keep],f[1:keep]*norm(vm1))
+            copyto!(H_im[1:keep,1:keep],T_im[1:keep,1:keep] +W_star_wl1_h)
+            copyto!(H_im[keep+1,1:keep],f_im[1:keep]*norm(wm1)) 
+   
             #shrinking
             shrink!(fact,keep)
             shrink!(fact_im,keep)
+                
+            copyto!(rayleighquotient(fact), H[1:keep][1:keep])
+            copyto!(rayleighquotient(fact_im), H_im[1:keep][1:keep])
+              
+            H_repacked = [H[i,j] for j in 1:keep-1 for i in 1:j+1]
+            H_repacked = append!(H_repacked, H[keep+1,1:keep])
+            H_repacked = append!(H_repacked,norm(vm1))
+            fact.H = H_repacked
+            H_repacked = [H_im[i,j] for j in 1:keep-1 for i in 1:j+1]
+            H_repacked = append!(H_repacked, H_im[keep+1,1:keep])
+            H_repacked = append!(H_repacked,norm(wm1))
+            fact_im.H = H_repacked
+           
 
-            # #state.H
-            # H_repacked = [H[i,j] for j in 1:keep-1 for i in 1:j+1]
-            # H_repacked = append!(H_repacked, H[keep+1,1:keep])
-            # H_repacked = append!(H_repacked,norm(vm1)*norm(f))
-            # fact.H = H_repacked
-            # H_repacked = [H_im[i,j] for j in 1:keep-1 for i in 1:j+1]
-            # H_repacked = append!(H_repacked, H_im[keep+1,1:keep])
-            # H_repacked = append!(H_repacked,norm(wm1)*norm(f_im))
-            # fact_im.H = H_repackeg
+
             numiter += 1
         end
 
@@ -307,7 +347,7 @@ function _schursolve_2sided(A,Astar, x₀, howmany::Int, which::Selector,alg::Ar
             numops += 1 
         end
     end
-    return T, U, T_im, U_im, converged, numiter, numops
+    return T, c, T_im,d, converged, numiter, numops
 end
 
 
@@ -344,24 +384,58 @@ end
 
 
 
+# eig_val = zeros(ComplexF64,4)
+# eig_val_im = zeros(ComplexF64,4)
+# eig_vec = Vector{ComplexF64}[]
+# eig_vec_im = Vector{ComplexF64}[]
+
+# for L in 2:1:5
+#     A = H_potts_matrix(L)
+#     x₀ = rand(ComplexF64,Q^L)
+#     x₀ = x₀/sqrt(inner(x₀,x₀))
+#     T, eig,T_im,eig_im,info,_,_ = _schursolve_2sided(A,A',x₀,1,:SR,eigsolver)
+#     eig_val[L-1] = T[1,1]
+#     eig_val_im[L-1] = T_im[1,1]
+#     push!(eig_vec,eig[1:end,1])
+#     push!(eig_vec_im,eig_im[1:end,1])
+#     print(L)
+# end
+# using JLD2
+# save_object("E_gr", eig_val)
+# save_object("E_gr_im", eig_val_im)
+# save_object("vec_gr", eig_vec)
+# save_object("vec_gr_im", eig_vec_im)
+
+using Plots 
+using LaTeXStrings
+using JLD2
+
+eig_val = load_object("E_gr")
+eig_val_im = load_object("E_gr_im")
+eig_vec = load_object("vec_gr")
+eig_vec_im = load_object("vec_gr_im")
+L_list = [2,3,4,5]
+println(length(eig_val_im))
+p = plot(; xlabel="L", ylabel="real(E0/L)")
+p = plot!(L_list,real(eig_val./L_list) ; seriestype=:scatter,label = "H")
+p = plot!(L_list,real(eig_val_im./L_list) ; seriestype=:scatter,label =L"H^{†}")
+savefig(p,"Eigval_LandR.png")
+p = plot(; xlabel="L", ylabel="im(E0/L)")
+p = plot!(L_list,real(-1im.*eig_val./L_list) ; seriestype=:scatter,label = "H0")
+p = plot!(L_list,real(-1im.*eig_val_im./L_list) ; seriestype=:scatter,label = L"H^{†}")
+savefig(p,"im Eigval_LandR.png")
+
+# savefig(p,"E diff between Z5 symmetric L=[8,9,10,11,12], D = $D.png")
+
+p = plot(title = "Ground vector difference"; xlabel="L", ylabel=L"Im( $< ψ_R| ψ_L > - < ψ_L |ψ_L > $) ")
+p = plot!(L_list,[real(-im.*(inner(eig_vec_im[i],eig_vec[i]) - inner(eig_vec[i],eig_vec[i]))) for i in 1:length(eig_vec)])
+savefig(p,"im Ground vector_dif.png")
 
 
-
-L = 4
-A = H_potts_matrix(L)
-x₀ = rand(ComplexF64,Q^L)
-x₀ = x₀/sqrt(inner(x₀,x₀))
-T, UU,T_im,UU_im,info,_,_ = _schursolve_2sided(A,A',x₀,1,:SR,eigsolver)
-println([T[i,i] for i in 1:1:6])
-println([T_im[i,i] for i in 1:1:6])
-
-
-
-
-
-
-
-
+p = plot(title = "Ground vector difference"; xlabel="L", ylabel=L"Re( $< ψ_R| ψ_L > - < ψ_L |ψ_L > $) ")
+println([(inner(eig_vec_im[i],eig_vec[i]) - inner(eig_vec[i],eig_vec[i])) for i in 1:length(eig_vec)])
+p = plot!(L_list,[real(inner(eig_vec_im[i],eig_vec[i]) - inner(eig_vec[i],eig_vec[i])) for i in 1:length(eig_vec)])
+savefig(p,"Ground vector_dif.png")
 
 
 
@@ -445,5 +519,6 @@ println([T_im[i,i] for i in 1:1:6])
 # vectors = let B = basis(vals)
 #     [B * u for u in KrylovKit.cols(vecs, 1:2)]
 # end
+
 
 

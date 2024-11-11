@@ -48,24 +48,3 @@ for (i,L) in enumerate(L_list)
 end
 save_object("non_sym_Ground_state_MPSNonHermitian_pottsq$Q excited-N$N_levels,D$D,energies-L$L_list.jld2", Energie_levels)
 end
-
-
-# D_list = 20:1:25
-# Ground_energy_D_scaling = zeros(ComplexF64,(25))
-# L=20
-# ###Yin Tang hamiltonian
-# H = @mpoham (sum(sum((-J * potts_phase(; q=Q,k=j)){i,i+1} + (-h * potts_spin_shift(; q = Q,k=j)){i} for j in 1:1:Q-1) for i in vertices(FiniteChain(L))[1:(end - 1)]) ##" potts model
-# +sum( -J * potts_phase(; q=Q,k=j){vertices(FiniteChain(L))[end],vertices(FiniteChain(L))[1]}+ (-h * potts_spin_shift(; q = Q,k=j)){vertices(FiniteChain(L))[end]} for j in 1:1:Q-1) ##potts model periodic bc
-# + lambda * sum( sum(sum(potts_phase_shift_combined(;q=Q,k=j,p=l){i,i+1} for l in 1:1:Q-1) for j in 1:1:Q-1)   for i in vertices(FiniteChain(L))[1:(end - 1)]) ##" additional non hermitian model
-# + lambda * sum(sum(potts_phase_shift_combined(;q=Q,k=j,p=l){vertices(FiniteChain(L))[end],vertices(FiniteChain(L))[1]} for l in 1:1:Q-1) for j in 1:1:Q-1)); ## non hermitian model periodic bc
-
-# for (i,D) in enumerate(D_list)
-#     ψ₀ = FiniteMPS(L,ℂ^Q, ℂ^D);
-#     println("start$D")
-#     (ψ, envir , delta)   = find_groundstate(ψ₀, H, DMRG(maxiter = 500,tol=1e-5, eigalg =MPSKit.Defaults.alg_eigsolve(; ishermitian=false)));
-#     Ground_energy_D_scaling[i] = expectation_value(ψ,H,envir)
-# end
-
-# p = plot(; xlabel="D", ylabel="real(E0)",title = "Energy pottsq5 in function off D")
-# plot!(p,D_list,real(Ground_energy_D_scaling),seriestype=:scatter,legend =false,ylims=(-42,-40) )
-
