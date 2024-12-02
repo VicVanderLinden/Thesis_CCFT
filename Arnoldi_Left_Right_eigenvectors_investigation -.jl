@@ -10,20 +10,6 @@ const tol = 1e-10
 const eigsolver = Arnoldi(; tol, maxiter, eager=true,verbosity=3)
 using KrylovKit: KrylovIterator, KrylovFactorization, OrthonormalBasis, Orthogonalizer, apply, zerovector, PackedHessenberg
 
-### changing the arnoldi iterator to allow for krylov-shur form where b vector is not limited to ek
-# # NEW! Arnoldi recurrence: simply use provided orthonormalization routines
-# function arnoldirecurrence!!(operator,
-#     V::OrthonormalBasis,
-#     h::AbstractVector,
-#     orth::Orthogonalizer)
-# v = apply(operator, last(V))
-# ## this part is different since i need w = V'* v
-# w = [V.basis[i]'*v for i in 1:length(V.basis)]
-# v = v - [sum(V.basis[j][i]*w[j] for j in 1:length(w)) for i in 1:length(V.basis[1])] 
-# β  = norm(v)
-# h = w 
-# return v, β
-# end
 
 D=5
 L=4
@@ -265,7 +251,7 @@ function _schursolve_2sided(A,Astar, x₀, howmany::Int, which::Selector,alg::Ar
                 end
             end
   
-            #################### METHOD 1, householder symmetry to bring back in hessenberg form
+            #################### METHOD 1, householder symmetry to bring back in hessenberg form of arnoldi
             # # orthogonalize H
             # H[1:keep,1:keep] = T[1:keep,1:keep] + V_star_vl1_h 
             # H_im[1:keep,1:keep] = T_im[1:keep,1:keep] +W_star_wl1_h
@@ -309,9 +295,9 @@ function _schursolve_2sided(A,Astar, x₀, howmany::Int, which::Selector,alg::Ar
 
             # #shrinking
             # shrink!(fact,keep)
-            # shrink!(fact_im,keep)
+            # shrink!(fact_im,keep) -> does not really work
             
-            ## Method 2, explicit shrinking 
+            ## Method 2, explicit shrinking and putting it in Krylov-schur decomposition
 
             # H and h (and orthogonalizing)
             copyto!(H[1:keep,1:keep],T[1:keep,1:keep] + V_star_vl1_h )
@@ -351,6 +337,7 @@ function _schursolve_2sided(A,Astar, x₀, howmany::Int, which::Selector,alg::Ar
 end
 
 
+
 D=5
 L=4
 Q = 5
@@ -381,9 +368,24 @@ function H_potts_matrix(L,Q=5)
     Potts_H += lambda *sum(sum(  kron(kron(sigma^p, eye(Q^(L-2))), tau'^k * sigma'^p) + kron(kron(tau'^k*sigma^p, eye(Q^(L-2))), sigma'^p) + kron(kron(sigma^k, eye(Q^(L-2))), sigma'^k *tau'^p) + kron(kron(sigma^k*tau'^k, eye(Q^(L-2))), sigma'^k)  for k in 1:1:Q-1) for p in 1:1:Q-1)
     return Potts_H
 end
+L = 4
+A = H_potts_matrix(L)
+x₀ = rand(ComplexF64,Q^L)
+x₀ = x₀/sqrt(inner(x₀,x₀))
+T, eig,T_im,eig_im,info,_,_ = _schursolve_2sided(A,A',x₀,1,:SR,eigsolver)
+eig_val[L-1] = T[1,1]
+eig_val_im[L-1] = T_im[1,1]
+println(eig_vec,eig[1:end,1])
+println(eig_vec_im,eig_im[1:end,1])
 
 
 
+
+
+
+
+
+## INVESTIGATING AND PLOTTING
 # eig_val = zeros(ComplexF64,4)
 # eig_val_im = zeros(ComplexF64,4)
 # eig_vec = Vector{ComplexF64}[]
@@ -406,119 +408,34 @@ end
 # save_object("vec_gr", eig_vec)
 # save_object("vec_gr_im", eig_vec_im)
 
-using Plots 
-using LaTeXStrings
-using JLD2
+# using Plots 
+# using LaTeXStrings
+# using JLD2
 
-eig_val = load_object("E_gr")
-eig_val_im = load_object("E_gr_im")
-eig_vec = load_object("vec_gr")
-eig_vec_im = load_object("vec_gr_im")
-L_list = [2,3,4,5]
-println(length(eig_val_im))
-p = plot(; xlabel="L", ylabel="real(E0/L)")
-p = plot!(L_list,real(eig_val./L_list) ; seriestype=:scatter,label = "H")
-p = plot!(L_list,real(eig_val_im./L_list) ; seriestype=:scatter,label =L"H^{†}")
-savefig(p,"Eigval_LandR.png")
-p = plot(; xlabel="L", ylabel="im(E0/L)")
-p = plot!(L_list,real(-1im.*eig_val./L_list) ; seriestype=:scatter,label = "H0")
-p = plot!(L_list,real(-1im.*eig_val_im./L_list) ; seriestype=:scatter,label = L"H^{†}")
-savefig(p,"im Eigval_LandR.png")
+# eig_val = load_object("E_gr")
+# eig_val_im = load_object("E_gr_im")
+# eig_vec = load_object("vec_gr")
+# eig_vec_im = load_object("vec_gr_im")
+# L_list = [2,3,4,5]
+# println(length(eig_val_im))
+# p = plot(; xlabel="L", ylabel="real(E0/L)")
+# p = plot!(L_list,real(eig_val./L_list) ; seriestype=:scatter,label = "H")
+# p = plot!(L_list,real(eig_val_im./L_list) ; seriestype=:scatter,label =L"H^{†}")
+# savefig(p,"Eigval_LandR.png")
+# p = plot(; xlabel="L", ylabel="im(E0/L)")
+# p = plot!(L_list,real(-1im.*eig_val./L_list) ; seriestype=:scatter,label = "H0")
+# p = plot!(L_list,real(-1im.*eig_val_im./L_list) ; seriestype=:scatter,label = L"H^{†}")
+# savefig(p,"im Eigval_LandR.png")
 
-# savefig(p,"E diff between Z5 symmetric L=[8,9,10,11,12], D = $D.png")
+# # savefig(p,"E diff between Z5 symmetric L=[8,9,10,11,12], D = $D.png")
 
-p = plot(title = "Ground vector difference"; xlabel="L", ylabel=L"Im( $< ψ_R| ψ_L > - < ψ_L |ψ_L > $) ")
-p = plot!(L_list,[real(-im.*(inner(eig_vec_im[i],eig_vec[i]) - inner(eig_vec[i],eig_vec[i]))) for i in 1:length(eig_vec)])
-savefig(p,"im Ground vector_dif.png")
-
-
-p = plot(title = "Ground vector difference"; xlabel="L", ylabel=L"Re( $< ψ_R| ψ_L > - < ψ_L |ψ_L > $) ")
-println([(inner(eig_vec_im[i],eig_vec[i]) - inner(eig_vec[i],eig_vec[i])) for i in 1:length(eig_vec)])
-p = plot!(L_list,[real(inner(eig_vec_im[i],eig_vec[i]) - inner(eig_vec[i],eig_vec[i])) for i in 1:length(eig_vec)])
-savefig(p,"Ground vector_dif.png")
+# p = plot(title = "Ground vector difference"; xlabel="L", ylabel=L"Im( $< ψ_R| ψ_L > - < ψ_L |ψ_L > $) ")
+# p = plot!(L_list,[real(-im.*(inner(eig_vec_im[i],eig_vec[i]) - inner(eig_vec[i],eig_vec[i]))) for i in 1:length(eig_vec)])
+# savefig(p,"im Ground vector_dif.png")
 
 
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-# Vp = Vect[ZNIrrep{Q}](0=>1,1=>1,2=>1,3=>1,4=>1) 
-# (h::MPO_∂∂AC)(x) = ∂AC(x, h.o, h.leftenv, h.rightenv);
-
-### investigation the fact that the right eigenvectors are not the same as the left
-
-# # ### RIGHT
-# ψ₀ = FiniteMPS(L,Vp,Vect[ZNIrrep{Q}](0=>D,1=>D,2=>D,3=>D,4=>D))
-# envs=environments(ψ₀, Potts_H)
-# h = ∂∂AC(1, ψ₀, Potts_H, envs) 
-# TT, vecs, vals, info = schursolve(h,ψ₀.AC[1],1,:SR,eigsolver)   
-# println("right")
-# println(TT)
-
-# ### left                       
-# println("left")
-# ψ₀ = FiniteMPS(L,Vp,Vect[ZNIrrep{Q}](0=>D,1=>D,2=>D,3=>D,4=>D))
-# envs=environments(ψ₀, conj(Potts_H)) ### I don't think you have to do transpose since mpo is in the middle
-# h = ∂∂AC(1, ψ₀, conj(Potts_H), envs)
-# TT_im, vecs_im, vals_im, info_im = schursolve(h,ψ₀.AC[1],1,:SR,eigsolver)
-
-# println(TT_im)
-# Vp = Vect[ZNIrrep{Q}](0=>1,1=>1,2=>1,3=>1,4=>1)
-# #ψ₀ = FiniteMPS(L,Vp,Vect[ZNIrrep{Q}](0=>D,1=>D,2=>D,3=>D,4=>D)); GOING to di this later but it would get even more complicated as you have like sorted dictionaries and shit
-# ψ₀ = FiniteMPS(L,ℂ^Q, ℂ^D);
-# println(typeof(Potts_H.data))
-
-# TT, vecs, vals, info,_,_ = _schursolve_2sided(Potts_H.data,conj(Potts_H.data),ψ₀,2,:SR,eigsolver) 
-# println("done")  
-# values = KrylovKit.schur2eigvals(TT)
-# vectors = let B = basis(vals)
-#     [B * u for u in KrylovKit.cols(vecs, 1:2)]
-# end
-
-
+# p = plot(title = "Ground vector difference"; xlabel="L", ylabel=L"Re( $< ψ_R| ψ_L > - < ψ_L |ψ_L > $) ")
+# println([(inner(eig_vec_im[i],eig_vec[i]) - inner(eig_vec[i],eig_vec[i])) for i in 1:length(eig_vec)])
+# p = plot!(L_list,[real(inner(eig_vec_im[i],eig_vec[i]) - inner(eig_vec[i],eig_vec[i])) for i in 1:length(eig_vec)])
+# savefig(p,"Ground vector_dif.png")
 
