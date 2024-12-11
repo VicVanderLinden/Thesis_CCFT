@@ -341,15 +341,15 @@ end
 # save_object("vec_gr Q=3", eig_vec)
 # save_object("vec_gr_im Q=3", eig_vec_im)
 
-# using Plots 
-# using LaTeXStrings
-# using JLD2
+using Plots 
+using LaTeXStrings
+using JLD2
 
-# eig_val = load_object("E_gr Q=3")
-# eig_val_im = load_object("E_gr_im")
-# eig_vec = load_object("vec_gr Q=3")
-# eig_vec_im = load_object("vec_gr_im")
-# L_list = [2,3,4,5,6,7]
+eig_val = load_object("E_gr")
+eig_val_im = load_object("E_gr_im")
+eig_vec = load_object("vec_gr Q=3")
+eig_vec_im = load_object("vec_gr_im Q=3")
+L_list = [2,3,4,5]
 
 # # p = plot(; xlabel="L", ylabel="real(E0/L)")
 # # p = plot!(L_list,real(eig_val./L_list) ; seriestype=:scatter,label = "H")
@@ -360,12 +360,13 @@ end
 # # p = plot!(L_list,real(-1im.*eig_val_im./L_list) ; seriestype=:scatter,label = L"H^{†}")
 # # savefig(p,"im Eigval_LandR.png")
 
-# p = plot(title = " Approximate eigenvectors"; xlabel="L", ylabel=L"  $|< ψ_L | ψ_R >|$ ")
-# p = plot!(L_list,[abs(inner(eig_vec_im[i],eig_vec[i])) for i in 1:6],seriestype=:scatter,label = L"$|< ψ_L | ψ_R >|$")
-# #ylims!((0.99999,1.00001))
-# savefig(p,"Approximate eigenvectors inproduct.png")
-# # inner(eig_vec_im[end],(H_potts_matrix(7,q)')eig_vec_im[end])
-# # println(eig_val[end])
+p = plot(title = " Approximate eigenvectors"; xlabel="L", ylabel=L"  $|< ψ_L | ψ_R >|$ ")
+
+p = plot!(L_list,[abs(eig_vec[i]'*eig_vec[i]) for i in 1:4],seriestype=:scatter,label = L"$|< ψ_R | ψ_R >|$")
+ylims!((0.99999999,1.00000001))
+savefig(p,"Approximate eigenvectors inproduct.png")
+# inner(eig_vec_im[end],(H_potts_matrix(7,q)')eig_vec_im[end])
+# println(eig_val[end])
 
 # p = plot(title = " Approximate eigenvectors Q=3"; xlabel="L", ylabel=L"  $ \frac{1}{E_i} |< ψ_i| H_i | ψ_i >|$ ")
 # p = plot!(L_list,[abs((1/eig_val[i])*inner(eig_vec[i],H_potts_matrix(i+1,q)*eig_vec[i])) for i in 1:6],seriestype=:scatter,label = L"$\frac{1}{E_i} | < ψ_R| H | ψ_R > |$")
