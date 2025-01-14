@@ -18,7 +18,7 @@ function potts_spin_shift(elt::Type{<:Number}, ::Type{Trivial}; q=3, k=1)
     pspace = ComplexSpace(q)
     tau = TensorMap(zeros, elt, pspace ← pspace)
     for i in 1:q
-        tau[i,mod1(i - 1, q)] = one(elt)
+        tau[i,mod1(i + 1, q)] = one(elt)
     end
     return (tau^k)                    ### nonzero elements on the parts that intermingle between sectors
 end
@@ -54,10 +54,10 @@ function potts_phase_shift_combined(elt::Type{<:Number}, ::Type{Trivial}; q=3,k=
     identity_e = TensorMap(zeros, elt, pspace ← pspace)
     for i in 1:q
         sigma[i, i] = cis(2*pi*(i-1)/q)
-        tau[i,mod1(i - 1, q)] = one(elt)
+        tau[i,mod1(i + 1, q)] = one(elt)
         identity_e[i,i]= 1
     end
-    return (tau^k'⊗ identity_e) * (sigma'⊗ sigma)^p + (identity_e ⊗ tau^k') * (sigma'⊗ sigma)^p + (sigma'⊗ sigma)^k * (tau^p'⊗ identity_e) +  (sigma'⊗ sigma)^k * (identity_e ⊗ tau^p')
+    return (tau^k⊗ identity_e) * (sigma'⊗ sigma)^p + (identity_e ⊗ tau^k) * (sigma'⊗ sigma)^p + (sigma'⊗ sigma)^k * (tau^p⊗ identity_e) +  (sigma'⊗ sigma)^k * (identity_e ⊗ tau^p)
 end
 
 
@@ -73,12 +73,10 @@ function Potts_Hamiltonian(L; J=1,h=1,Q=5,lambda=0.079 + 0.060im,sym=true)
                 T[i+1,j+1] = (ω^i)^j
             end
         end
-        P = TensorMap(T/sqrt(5),ℂ^Q←ℂ^Q)       
-        pspace = ComplexSpace(Q)                     
-        P_inv = TensorMap(inv(P.data), pspace ← pspace)        
-        H0 = @mpoham (sum(TensorMap((P_inv*sum((-h * potts_spin_shift(; q = Q,k=j)) for j in 1:1:Q-1)*P).data,Vp←Vp){i} for i in vertices(FiniteChain(L))[1:(end)])) ### Potts
-        H1 = @mpoham (sum(TensorMap(((P_inv ⊗ P_inv)*sum((-J * potts_phase(; q=Q,k=j)) for j in 1:1:Q-1)*(P ⊗ P)).data, Vp⊗Vp←Vp⊗Vp){i,i+1}  for i in vertices(FiniteChain(L))[1:(end-1)]) + TensorMap(((P_inv ⊗ P_inv)*sum((-J * potts_phase(; q=Q,k=j)) for j in 1:1:Q-1)*(P ⊗ P)).data, Vp⊗Vp←Vp⊗Vp){vertices(FiniteChain(L))[end],vertices(FiniteChain(L))[1]}) ##¨Potts with BC
-        H2 =  @mpoham lambda * sum( TensorMap(((P_inv ⊗ P_inv) * sum(sum(potts_phase_shift_combined(;q=Q,k=l,p=j) for l in 1:1:Q-1) for j in 1:1:Q-1) *(P⊗P)).data,Vp⊗Vp←Vp⊗Vp){i,i+1}   for i in vertices(FiniteChain(L))[1:(end - 1)]) + lambda * TensorMap(((P_inv ⊗ P_inv) * sum(sum(potts_phase_shift_combined(;q=Q,k=l,p=j) for l in 1:1:Q-1) for j in 1:1:Q-1) *(P⊗P)).data, Vp⊗Vp←Vp⊗Vp ){vertices(FiniteChain(L))[end],vertices(FiniteChain(L))[1]} ###Extra term
+        P = TensorMap(T/sqrt(5),ℂ^Q←ℂ^Q)                                  
+        H0 = @mpoham (sum(TensorMap((P'*sum((-h * potts_spin_shift(; q = Q,k=j)) for j in 1:1:Q-1)*P).data,Vp←Vp){i} for i in vertices(FiniteChain(L))[1:(end)])) ### Potts
+        H1 = @mpoham (sum(TensorMap(((P' ⊗ P')*sum((-J * potts_phase(; q=Q,k=j)) for j in 1:1:Q-1)*(P ⊗ P)).data, Vp⊗Vp←Vp⊗Vp){i,i+1}  for i in vertices(FiniteChain(L))[1:(end-1)]) + TensorMap(((P' ⊗ P')*sum((-J * potts_phase(; q=Q,k=j)) for j in 1:1:Q-1)*(P ⊗ P)).data, Vp⊗Vp←Vp⊗Vp){vertices(FiniteChain(L))[end],vertices(FiniteChain(L))[1]}) ##¨Potts with BC
+        H2 =  @mpoham lambda * sum( TensorMap(((P' ⊗ P') * sum(sum(potts_phase_shift_combined(;q=Q,k=l,p=j) for l in 1:1:Q-1) for j in 1:1:Q-1) *(P⊗P)).data,Vp⊗Vp←Vp⊗Vp){i,i+1}   for i in vertices(FiniteChain(L))[1:(end - 1)]) + lambda * TensorMap(((P' ⊗ P') * sum(sum(potts_phase_shift_combined(;q=Q,k=l,p=j) for l in 1:1:Q-1) for j in 1:1:Q-1) *(P⊗P)).data, Vp⊗Vp←Vp⊗Vp ){vertices(FiniteChain(L))[end],vertices(FiniteChain(L))[1]} ###Extra term
         ham = H0+H1+H2
     else
         ham = @mpoham (sum(sum((-J * potts_phase(; q=Q,k=j)){i,i+1} + (-h * potts_spin_shift(; q = Q,k=j)){i} for j in 1:1:Q-1) for i in vertices(FiniteChain(L))[1:(end - 1)]) ##" potts model
