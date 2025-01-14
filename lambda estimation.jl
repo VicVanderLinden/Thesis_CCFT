@@ -89,21 +89,22 @@ end
 N=5 
 D = 50
 test_values = zeros(ComplexF64,(2*N-1)^2)
-
+distx = 0.04 ## distance from alleged fixed point 0.079+0.060i in real
+disty = 0.04 # distance from alleged fixed point 0.079+0.060i in imaginary
 ### changed this slightly to allow for any parameter N to cross at 0.079 + 0.060i point -> its 2N-1 parameter square now (for any N)
 for i in 1:1:(2*N-1)
     for j in 1:1:(2*N-1)
         if i <N+1
             if j<N+1
-                test_values[i+(j-1)*(2*N-1)] =  (LinRange(-0.04,0.00,N)[i]) .+ (0.079)  + 1im*LinRange(-0.040,0.00,N)[j] .+ 0.06im 
+                test_values[i+(j-1)*(2*N-1)] =  (LinRange(-distx,0.00,N)[i]) .+ (0.079)  + 1im*LinRange(-disty,0.00,N)[j] .+ 0.06im 
             else 
-                test_values[i+(j-1)*(2*N-1)] =  (LinRange(-0.04,0.00,N)[i]) .+ (0.079)  + 1im*LinRange(0+0.040/(N-1),0.040+0.040/(N-1),N)[j-N] .+ 0.06im 
+                test_values[i+(j-1)*(2*N-1)] =  (LinRange(-distx,0.00,N)[i]) .+ (0.079)  + 1im*LinRange(disty/(N-1),disty+disty/(N-1),N)[j-N] .+ 0.06im 
             end
         else
             if j<N+1
-                test_values[i+(j-1)*(2*N-1)] =  (LinRange(0+0.040/(N-1),0.040+0.040/(N-1),N)[i-N]) .+ (0.079)  + 1im*LinRange(-0.040,0.00,N)[j] .+ 0.06im 
+                test_values[i+(j-1)*(2*N-1)] =  (LinRange(distx/(N-1),distx+distx/(N-1),N)[i-N]) .+ (0.079)  + 1im*LinRange(-disty,0.00,N)[j] .+ 0.06im 
             else
-                test_values[i+(j-1)*(2*N-1)] =  (LinRange(0+0.040/(N-1),0.040+0.040/(N-1),N)[i-N]) .+ (0.079)  + 1im*LinRange(0+0.040/(N-1),0.040+0.040/(N-1),N)[j-N] .+ 0.06im 
+                test_values[i+(j-1)*(2*N-1)] =  (LinRange(distx/(N-1),distx+distx/(N-1),N)[i-N]) .+ (0.079)  + 1im*LinRange(disty/(N-1),disty+disty/(N-1),N)[j-N] .+ 0.06im 
             end
         end 
        
