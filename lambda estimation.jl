@@ -90,7 +90,7 @@ N=5
 D = 50
 test_values = zeros(ComplexF64,(2*N-1)^2)
 distx = 0.04 ## distance from alleged fixed point 0.079+0.060i in real
-disty = 0.04 # distance from alleged fixed point 0.079+0.060i in imaginary
+disty = 1 # distance from alleged fixed point 0.079+0.060i in imaginary
 ### changed this slightly to allow for any parameter N to cross at 0.079 + 0.060i point -> its 2N-1 parameter square now (for any N)
 for i in 1:1:(2*N-1)
     for j in 1:1:(2*N-1)
@@ -114,7 +114,7 @@ end
 
 
 
-### run simulation here -> chose length scales
-# for L in [6]
-#     lambda_estimation(L,test_values)
-# end
+## run simulation here -> chose length scales
+for L in [6]
+    lambda_estimation(L,test_values)
+end
