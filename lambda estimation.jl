@@ -55,7 +55,6 @@ function lambda_estimation(L,lambda_range,alg="QuasiparticleAnsatz")
         #(ψ, envir , delta)   = find_groundstate(ψ, H, VUMPS(maxiter = 500,tol=1e-6))
        
         if alg == "QuasiparticleAnsatz"
-            println("here")
             En0, st0 = excitations(H, QuasiparticleAnsatz(ishermitian=false), ψ, envir; sector=ZNIrrep{5}(0),num=2)
             En1, st1 = excitations(H, QuasiparticleAnsatz(ishermitian=false), ψ, envir; sector=ZNIrrep{5}(1),num=2)
             En = vcat(En1,En0)
