@@ -40,32 +40,39 @@ AL1εε_prime = 1+Δε_prime*(Δε_prime -2)/(4*Δε)
 AL1σε_prime = 1+Δε_prime*(Δε_prime -2)/(4*Δσ)
 
 
-function lambda_estimation(L,lambda_range)
+function lambda_estimation(L,lambda_range,alg="QuasiparticleAnsatz")
     gε_prime = zeros(ComplexF64,length(lambda_range))
     gε_prime_wo_C = zeros(ComplexF64,length(lambda_range))
     Eε = zeros(ComplexF64,length(lambda_range))
     Eσ = zeros(ComplexF64,length(lambda_range))
     EL1ε = zeros(ComplexF64,length(lambda_range))
-    EL1sigma = zeros(ComplexF64, length(lambda_range))
+    EL1σ = zeros(ComplexF64, length(lambda_range))
 
     ## sector search
-    ψ₀ = FiniteMPS(L,Vp,Vect[ZNIrrep{Q}](0=>D,1=>D,2=>D,3=>D,4=>D)) #;left=Vleft, right=Vright) 
+    ψ = FiniteMPS(L,Vp,Vect[ZNIrrep{Q}](0=>D,1=>D,2=>D,3=>D,4=>D)) #;left=Vleft, right=Vright) 
+   
     for (i,lambda) in enumerate(lambda_range)
         H = Potts_Hamiltonian(L;lambda = lambda)
-        (ψ, envir , delta)   = find_groundstate(ψ₀, H, DMRG(maxiter = 500,tol=1e-6, eigalg =MPSKit.Defaults.alg_eigsolve(; ishermitian=false)))
-        En, st = excitations(H, QuasiparticleAnsatz(ishermitian=false), ψ, envir; sector=ZNIrrep{5}(0),num=2)
-        print(En)
-        ΔEε = En[1]
-        ΔEL1ε = En[2]
-        En, st = excitations(H, QuasiparticleAnsatz(ishermitian=false), ψ, envir; sector=ZNIrrep{5}(1),num=2)
+        (ψ, envir , delta)   = find_groundstate(ψ, H, DMRG(maxiter = 500,tol=1e-6, eigalg =MPSKit.Defaults.alg_eigsolve(; ishermitian=false)))
+        #(ψ, envir , delta)   = find_groundstate(ψ, H, VUMPS(maxiter = 500,tol=1e-6))
+       
+        if alg == "QuasiparticleAnsatz"
+            En0, st0 = excitations(H, QuasiparticleAnsatz(ishermitian=false), ψ, envir; sector=ZNIrrep{5}(0),num=2)
+            En1, st1 = excitations(H, QuasiparticleAnsatz(ishermitian=false), ψ, envir; sector=ZNIrrep{5}(1),num=2)
+            En = hvcat(En1,En0)
+            st = hvcat(st1,st0)
+        end
+        if alg == "ChepigaAnsatz"
+            En, st = excitations(H, ChepigaAnsatz(), ψ, envir; num=4)
+        end
+        # if alg == "DMRG"
+        #      En ,st  = excitations(H,FiniteExcited(),ψ,init=ψ1,num=2); 
+        #      En ,st  = excitations(H,FiniteExcited(),ψ,init=ψ2,num=2); 
+        # end
+        ΔEε = En[3]
+        ΔEL1ε = En[4]
         ΔEσ = En[1]
         ΔEL1σ = En[2]
-        # En, st = excitations(H, ChepigaAnsatz(), ψ, envir; num=4)
-        # print(En)
-        # ΔEε = En[3]
-        # ΔEL1ε = En[4]
-        # ΔEσ = En[1]
-        # ΔEL1σ = En[2]
         
         fun(x) = abs((x[1]+1im*x[3])*(ΔEε) - Δε -Cε_primeεε* (x[2]+1im*x[4])) + abs((x[1]+1im*x[3])*(ΔEL1ε) -ΔL1ε  -Cε_primeεε* AL1εε_prime* (x[2]+1im*x[4])) +abs((x[1]+1im*x[3])*(ΔEσ) - Δσ -Cε_primeσσ*  (x[2]+1im*x[4])) + abs((x[1]+1im*x[3])*(ΔEL1σ) -ΔL1σ  -Cε_primeσσ* AL1σε_prime* (x[2]+1im*x[4]))
         res = optimize(fun, [0.0, 0.0,0.0,0.0])
@@ -76,7 +83,7 @@ function lambda_estimation(L,lambda_range)
         Eε[i] = ΔEε
         Eσ[i] = ΔEσ
         EL1ε[i] = ΔEL1ε
-        EL1sigma[i] = ΔEL1σ
+        EL1σ[i] = ΔEL1σ
     end
     save_object("Lambda_est_ge_woc$L.jld2", gε_prime_wo_C)
     save_object("Lambda_est_ge$L.jld2", gε_prime)
@@ -116,5 +123,5 @@ end
 
 ## run simulation here -> chose length scales
 for L in [6]
-    lambda_estimation(L,test_values)
+    lambda_estimation(L,test_values,"DMRG")
 end
