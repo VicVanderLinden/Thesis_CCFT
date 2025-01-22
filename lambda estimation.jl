@@ -94,8 +94,8 @@ end
 N=5 
 D = 50
 test_values = zeros(ComplexF64,(2*N-1)^2)
-distx = 0.04 ## distance from alleged fixed point 0.079+0.060i in real
-disty = 1 # distance from alleged fixed point 0.079+0.060i in imaginary
+distx = 0.079 ## distance from alleged fixed point 0.079+0.060i in real
+disty = 0.060 # distance from alleged fixed point 0.079+0.060i in imaginary
 ### changed this slightly to allow for any parameter N to cross at 0.079 + 0.060i point -> its 2N-1 parameter square now (for any N)
 for i in 1:1:(2*N-1)
     for j in 1:1:(2*N-1)
