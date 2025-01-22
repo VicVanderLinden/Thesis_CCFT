@@ -55,10 +55,12 @@ function lambda_estimation(L,lambda_range,alg="QuasiparticleAnsatz")
         #(ψ, envir , delta)   = find_groundstate(ψ, H, VUMPS(maxiter = 500,tol=1e-6))
        
         if alg == "QuasiparticleAnsatz"
+            println("here")
             En0, st0 = excitations(H, QuasiparticleAnsatz(ishermitian=false), ψ, envir; sector=ZNIrrep{5}(0),num=2)
             En1, st1 = excitations(H, QuasiparticleAnsatz(ishermitian=false), ψ, envir; sector=ZNIrrep{5}(1),num=2)
-            global En = hvcat(En1,En0)
-            st = hvcat(st1,st0)
+            En = vcat(En1,En0)
+            println(En)
+            st = vcat(st1,st0)
         end
         if alg == "ChepigaAnsatz"
             En, st = excitations(H, ChepigaAnsatz(), ψ, envir; num=4)
@@ -121,5 +123,5 @@ end
 
 ## run simulation here -> chose length scales
 for L in [6]
-    lambda_estimation(L,test_values,"DMRG")
+    lambda_estimation(L,test_values)
 end
