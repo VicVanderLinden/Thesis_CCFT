@@ -23,8 +23,6 @@ pspace = ComplexSpace(Q)
 P_inv = TensorMap(inv(P.data), pspace ← pspace)  
 
 
-
-
 using LinearAlgebra     
 using Optim
 
