@@ -58,7 +58,6 @@ function lambda_estimation(L,lambda_range,alg="QuasiparticleAnsatz")
             En0, st0 = excitations(H, QuasiparticleAnsatz(ishermitian=false), ψ, envir; sector=ZNIrrep{5}(0),num=2)
             En1, st1 = excitations(H, QuasiparticleAnsatz(ishermitian=false), ψ, envir; sector=ZNIrrep{5}(1),num=2)
             En = vcat(En1,En0)
-            println(En)
             st = vcat(st1,st0)
         end
         if alg == "ChepigaAnsatz"
