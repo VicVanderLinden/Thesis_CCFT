@@ -65,19 +65,26 @@ end
 function Potts_Hamiltonian(L; J=1,h=1,Q=5,lambda=0.079 + 0.060im,sym=true)
     ### symmetry
     if sym       
-        T = zeros(ComplexF64,Q,Q)           
-        ω = exp(2*π*im/Q)   
-        Vp = Vect[ZNIrrep{5}](0=>1,1=>1,2=>1,3=>1,4=>1)
-        for i in 0:Q-1
-            for j in 0:Q-1
-                T[i+1,j+1] = (ω^i)^j
-            end
-        end
-        P = TensorMap(T/sqrt(5),ℂ^Q←ℂ^Q)                                  
-        H0 = @mpoham (sum(TensorMap((P'*sum((-h * potts_spin_shift(; q = Q,k=j)) for j in 1:1:Q-1)*P).data,Vp←Vp){i} for i in vertices(FiniteChain(L))[1:(end)])) ### Potts
-        H1 = @mpoham (sum(TensorMap(((P' ⊗ P')*sum((-J * potts_phase(; q=Q,k=j)) for j in 1:1:Q-1)*(P ⊗ P)).data, Vp⊗Vp←Vp⊗Vp){i,i+1}  for i in vertices(FiniteChain(L))[1:(end-1)]) + TensorMap(((P' ⊗ P')*sum((-J * potts_phase(; q=Q,k=j)) for j in 1:1:Q-1)*(P ⊗ P)).data, Vp⊗Vp←Vp⊗Vp){vertices(FiniteChain(L))[end],vertices(FiniteChain(L))[1]}) ##¨Potts with BC
-        H2 =  @mpoham lambda * sum( TensorMap(((P' ⊗ P') * sum(sum(potts_phase_shift_combined(;q=Q,k=l,p=j) for l in 1:1:Q-1) for j in 1:1:Q-1) *(P⊗P)).data,Vp⊗Vp←Vp⊗Vp){i,i+1}   for i in vertices(FiniteChain(L))[1:(end - 1)]) + lambda * TensorMap(((P' ⊗ P') * sum(sum(potts_phase_shift_combined(;q=Q,k=l,p=j) for l in 1:1:Q-1) for j in 1:1:Q-1) *(P⊗P)).data, Vp⊗Vp←Vp⊗Vp ){vertices(FiniteChain(L))[end],vertices(FiniteChain(L))[1]} ###Extra term
-        ham = H0+H1+H2
+        # T = zeros(ComplexF64,Q,Q)           
+        # ω = exp(2*π*im/Q)   
+        # Vp = Vect[ZNIrrep{5}](0=>1,1=>1,2=>1,3=>1,4=>1)
+        # for i in 0:Q-1
+        #     for j in 0:Q-1
+        #         T[i+1,j+1] = (ω^i)^j
+        #     end
+        # end
+        H = periodic_boundary_conditions(quantum_potts(ZNIrrep{Q};q=Q), L)
+        _,_,W = weyl_heisenberg_matrices(Q)
+        P = TensorMap(W,ℂ^Q←ℂ^Q)
+        lat = FiniteChain(L)
+        # dat0 = reshape((P'*sum((-h * potts_spin_shift(; q = Q,k=j)) for j in 1:1:Q-1)*P).data, (Q,Q))
+        # dat1 = reshape(((P' ⊗ P')*sum((-J * potts_phase(; q=Q,k=j)) for j in 1:1:Q-1)*(P ⊗ P)).data, (Q,Q,Q,Q))
+        dat2 = reshape(((P' ⊗ P') * sum(sum(potts_phase_shift_combined(;q=Q,k=l,p=j) for l in 1:1:Q-1) for j in 1:1:Q-1) *(P⊗P)).data, (Q,Q,Q,Q))
+        # H0 = @mpoham (sum(TensorMap(dat0,Vp←Vp){i} for i in vertices(lat)[1:(end)])) ### Potts
+        # H1 = @mpoham (sum(TensorMap(dat1, Vp⊗Vp←Vp⊗Vp){i,i+1}  for i in vertices(lat)[1:(end-1)]) + TensorMap(dat1, Vp⊗Vp←Vp⊗Vp){vertices(lat)[end],vertices(lat)[1]}) ##¨Potts with BC
+        H2 =  @mpoham lambda * sum(TensorMap(dat2,Vp⊗Vp←Vp⊗Vp){i,i+1} for i in vertices(lat)[1:(end - 1)]) + lambda * TensorMap(dat2, Vp⊗Vp←Vp⊗Vp){vertices(lat)[end],vertices(lat)[1]} ###Extra term
+        # ham = H0+H1+H2
+        ham = H + H2
     else
         ham = @mpoham (sum(sum((-J * potts_phase(; q=Q,k=j)){i,i+1} + (-h * potts_spin_shift(; q = Q,k=j)){i} for j in 1:1:Q-1) for i in vertices(FiniteChain(L))[1:(end - 1)]) ##" potts model
         +sum( -J * potts_phase(; q=Q,k=j){vertices(FiniteChain(L))[end],vertices(FiniteChain(L))[1]}+ (-h * potts_spin_shift(; q = Q,k=j)){vertices(FiniteChain(L))[end]} for j in 1:1:Q-1) ##potts model periodic bc
