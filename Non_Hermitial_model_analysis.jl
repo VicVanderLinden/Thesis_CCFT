@@ -11,30 +11,41 @@ L_list = [8,9,10,11,12]
 #     push!(data_Eσ,load("Ground_state_andEsigma_L6-24/Energy_$L.jld2")["Eσ"])
 # end
 
-data = load_object("Alt_term_MPSNonHermitian_pottsq5 excited-N0,D100,energies-L[8, 9, 10, 11, 12].jld2")
+data = load_object("MPS_altlambda_pottsq5 excited-N5,D50,energies-L[8, 9, 10, 11, 12].jld2")
 println(data)
 # ####################################Energie levels #################
-# L_list = 8:1:12
-# x_values = 1 ./ L_list
-# N = 4
-# Energie_values = zeros(ComplexF64,(length(L_list),N+1))
-# for i in 1:1:length(L_list)
-#     for j in 1:1:N+1
-#         Energie_values[i,j] = data[i][j]
-#     end
-# end
+L_list = 8:1:12
+x_values = 1 ./ L_list
+N = 4
+Energie_values = zeros(ComplexF64,(length(L_list),N+1))
+for i in 1:1:length(L_list)
+    for j in 1:1:N+1
+        if j==1
+        Energie_values[i,j] = data[i][j]/L_list[i]
+        else 
+        Energie_values[i,j] = data[i][j]
+        end
+    end
+end
+level = 1
+p = plot(; xlabel="1/L^2", ylabel="Re(E0/L)",title = " alt lambbda GS Energy Pottsq5, D100")
+plot!(p,x_values.^2,real((Energie_values[:,level])),seriestype=:scatter,label="real")
+f = fit(x_values.^2,real((Energie_values[:,level])), 1)
+c = f.coeffs[2]
+plot!(p,x_values -> f(x_values); label="fit real(a) = $c")
+savefig(p,"q5alt_lambda_QuasiparticleAnsatz-$level Energy gap Pottsq3D100.png")
 
-# dim_unscaled = zeros(ComplexF64,N,1)
-# for (i,level) in enumerate(2:1:5)
-# println(Energie_values[level,1])
-# p = plot(; xlabel="1/L", ylabel="Re(E$level-E0)",title = "$level Energy gap Pottsq5 sector1, D100")
-# plot!(p,x_values,real((Energie_values[:,1]+Energie_values[:,level])),seriestype=:scatter,label="real")
-# f = fit(x_values,real((Energie_values[:,1]+Energie_values[:,level])), 1)
-# c = f.coeffs[2]
-# plot!(p,x_values -> f(x_values); label="fit real(a) = $c")
-# savefig(p,"QuasiparticleAnsatz-$level Energy gap Pottsq5D100 sector0.png")
+dim_unscaled = zeros(ComplexF64,N,1)
+for (i,level) in enumerate(2:1:5)
+println(Energie_values[level,1])
+p = plot(; xlabel="1/L", ylabel="Re(E$(level-1)-E0)",title = "alt lambda $(level-1) Energy gap Pottsq5, D100")
+plot!(p,x_values,real((Energie_values[:,level])),seriestype=:scatter,label="real")
+f = fit(x_values,real((Energie_values[:,level])), 1)
+c = f.coeffs[2]
+plot!(p,x_values -> f(x_values); label="fit real(a) = $c")
+savefig(p,"q5alt_lambda_QuasiparticleAnsatz-$level Energy gap Pottsq3D100.png")
 
-# end
+end
 
 # q = plot(; xlabel="1/L", ylabel="Im(E$level-E0)",title="$level Energy gap Pottsq5 sector0, D100")
 # plot!(q,x_values,real(im.*(Energie_values[:,level])),seriestype=:scatter,label="imaginary" )
@@ -88,34 +99,34 @@ println(data)
 
 
 
+# # 
+
+# ################################## central charge ########################################
+# D=64
+# x_values = 1 ./L_list.^2
+# divided_energies = similar(L_list,ComplexF64)
+# E_gap = similar(L_list,ComplexF64)
+# println(size(data))
+# for j in 1:1:length(L_list)
+#     divided_energies[j] = data[j][1]/L_list[j]
+# end
+
+# f = fit(x_values, real(divided_energies), 1)
+# c = f.coeffs[2]
+# println(c)
+# p = plot(; xlabel="1/L²", ylabel="Re(E0/L)", xlim = (0,0.025))
+# p = plot!(x_values,real(divided_energies) ; seriestype=:scatter)
+# plot!(p, x_values -> f(x_values); label="fit real(a) = $c")
+# savefig(p,"alt Real Energy scaling L=$L_list, D = $D.png")
 
 
-################################## central charge ########################################
-D=64
-x_values = 1 ./L_list.^2
-divided_energies = similar(L_list,ComplexF64)
-E_gap = similar(L_list,ComplexF64)
-println(size(data))
-for j in 1:1:length(L_list)
-    divided_energies[j] = data[j][1]/L_list[j]
-end
-
-f = fit(x_values, real(divided_energies), 1)
-c = f.coeffs[2]
-println(c)
-p = plot(; xlabel="1/L²", ylabel="Re(E0/L)", xlim = (0,0.025))
-p = plot!(x_values,real(divided_energies) ; seriestype=:scatter)
-plot!(p, x_values -> f(x_values); label="fit real(a) = $c")
-savefig(p,"alt Real Energy scaling L=$L_list, D = $D.png")
-
-
-f = fit(x_values, real(im*divided_energies), 1)
-c = f.coeffs[2]
-println(c)
-p = plot(; xlabel="1/L²", ylabel="Im(E0/L)", xlim = (0,0.025))
-p = plot!(x_values,real(im.*divided_energies) ; seriestype=:scatter)
-plot!(p, x_values -> f(x_values); label="fit real(a) = $c")
-savefig(p,"alt Imaginary Energy scaling $L_list, D= $D.png")
+# f = fit(x_values, real(im*divided_energies), 1)
+# c = f.coeffs[2]
+# println(c)
+# p = plot(; xlabel="1/L²", ylabel="Im(E0/L)", xlim = (0,0.025))
+# p = plot!(x_values,real(im.*divided_energies) ; seriestype=:scatter)
+# plot!(p, x_values -> f(x_values); label="fit real(a) = $c")
+# savefig(p,"alt Imaginary Energy scaling $L_list, D= $D.png")
 
 
 

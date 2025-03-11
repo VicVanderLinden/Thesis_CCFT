@@ -1,35 +1,35 @@
 ### lambda analysis
 using JLD2
 
-N = 5
-L = 6
-test_values = zeros(ComplexF64,(2*N-1)^2)
-distx = 0.04 ## distance from alleged fixed point 0.079+0.060i in real
-disty = 0.04 # distance from alleged fixed point 0.079+0.060i in imaginary
-### changed this slightly to allow for any parameter N to cross at 0.079 + 0.060i point -> its 2N-1 parameter square now (for any N)
-for i in 1:1:(2*N-1)
-    for j in 1:1:(2*N-1)
-        if i <N+1
-            if j<N+1
-                test_values[i+(j-1)*(2*N-1)] =  (LinRange(-distx,0.00,N)[i]) .+ (0.079)  + 1im*LinRange(-disty,0.00,N)[j] .+ 0.06im 
-            else 
-                test_values[i+(j-1)*(2*N-1)] =  (LinRange(-distx,0.00,N)[i]) .+ (0.079)  + 1im*LinRange(disty/(N-1),disty+disty/(N-1),N)[j-N] .+ 0.06im 
-            end
-        else
-            if j<N+1
-                test_values[i+(j-1)*(2*N-1)] =  (LinRange(distx/(N-1),distx+distx/(N-1),N)[i-N]) .+ (0.079)  + 1im*LinRange(-disty,0.00,N)[j] .+ 0.06im 
-            else
-                test_values[i+(j-1)*(2*N-1)] =  (LinRange(distx/(N-1),distx+distx/(N-1),N)[i-N]) .+ (0.079)  + 1im*LinRange(disty/(N-1),disty+disty/(N-1),N)[j-N] .+ 0.06im 
-            end
-        end 
+# N = 5
+# L = 6
+# test_values = zeros(ComplexF64,(2*N-1)^2)
+# distx = 0.04 ## distance from alleged fixed point 0.079+0.060i in real
+# disty = 0.04 # distance from alleged fixed point 0.079+0.060i in imaginary
+# ### changed this slightly to allow for any parameter N to cross at 0.079 + 0.060i point -> its 2N-1 parameter square now (for any N)
+# for i in 1:1:(2*N-1)
+#     for j in 1:1:(2*N-1)
+#         if i <N+1
+#             if j<N+1
+#                 test_values[i+(j-1)*(2*N-1)] =  (LinRange(-distx,0.00,N)[i]) .+ (0.079)  + 1im*LinRange(-disty,0.00,N)[j] .+ 0.06im 
+#             else 
+#                 test_values[i+(j-1)*(2*N-1)] =  (LinRange(-distx,0.00,N)[i]) .+ (0.079)  + 1im*LinRange(disty/(N-1),disty+disty/(N-1),N)[j-N] .+ 0.06im 
+#             end
+#         else
+#             if j<N+1
+#                 test_values[i+(j-1)*(2*N-1)] =  (LinRange(distx/(N-1),distx+distx/(N-1),N)[i-N]) .+ (0.079)  + 1im*LinRange(-disty,0.00,N)[j] .+ 0.06im 
+#             else
+#                 test_values[i+(j-1)*(2*N-1)] =  (LinRange(distx/(N-1),distx+distx/(N-1),N)[i-N]) .+ (0.079)  + 1im*LinRange(disty/(N-1),disty+disty/(N-1),N)[j-N] .+ 0.06im 
+#             end
+#         end 
        
-    end
-end
+#     end
+# end
 
 
 ################## Lambda istelf ###################
 using PlotlyJS
-results = load_object("alt_term_Lambda_est_ge6.jld2")
+results = load_object("Vic/Lambda_est_ge10.jld2")
 z_values = zeros(length(results))
 print(results)
 for res in 1:1:length(results)
@@ -163,30 +163,35 @@ savefig(p,"falt_term_ge__lambda_estimation_D50,L$L,N5.png")
 
 
 # ### RG flow (of dimensions)
-using Plots
-L_list = [6,8,10,12]
-data_Eε = Matrix{ComplexF64}(undef,length(L_list),(2*N-1)*(2*N-1))
-data_Eσ = Matrix{ComplexF64}(undef,length(L_list),(2*N-1)*(2*N-1))
-data_g = Matrix{ComplexF64}(undef,length(L_list),(2*N-1)*(2*N-1))
+# N = 5
+# using Plots
+# L_list = [6,8,10,12]
+# data_Eε = Matrix{ComplexF64}(undef,length(L_list),(N)*(N))
+# data_Eσ = Matrix{ComplexF64}(undef,length(L_list),(N)*(N))
+# data_g = Matrix{ComplexF64}(undef,length(L_list),(N)*(N))
+# using LaTeXStrings
 
-for (i,L) in enumerate(L_list)
-    temp = load_object("Vic/ΔEε with lambda for $L.jld2")
-    temp2 = load_object("Vic/ΔEσ with lambda for$L.jld2")
-    temp3 = load_object("Vic/Lambda_est_ge$L.jld2")
-    for j in 1:N*N
-        data_g[i,j] = temp3[j]
-        data_Eσ[i,j] = temp2[j]
-        data_Eε[i,j] = temp[j]
-    end
-end
-p = plot(; xlabel="real(ge)", ylabel="im(ge))",title = "ge evolution L = [6,8,10,12]",legend=false)
-for i in 1:1:N*N
-    plot!(p,real(data_g[:,i]),real(-im.*data_g[:,i]),color="blue")
-    quiver!(p,[real(data_g[2,i]),],[real(-im.*data_g[2,i]);], quiver = [0.1.*(real(data_g[3,i]-data_g[2,i]),real(-im.*(data_g[3,i]-data_g[2,i]))),],color="red")
+# for (i,L) in enumerate(L_list)
+#     temp = load_object("Vic/ΔEε with lambda for $L.jld2")
+#     temp2 = load_object("Vic/ΔEσ with lambda for$L.jld2")
+#     temp3 = load_object("Vic/Lambda_est_ge$L.jld2")
+#     println(size(temp3))
+#     for j in 1:N*N
+#         data_g[i,j] = temp3[j] 
+#         data_Eσ[i,j] = temp2[j]
+#         data_Eε[i,j] = temp[j]
+#     end
+# end
+# println(data_g)
 
-end
-plot!(p,[0.00,],[0.000,], seriestype=:scatter)
-# savefig(p,"ge_evolution.png")
+# p = plot(; xlabel=L"Re($\lambda$)", ylabel=L"Im($\lambda$)",title = L" $\lambda$ evolution for L = 6,8,10,12",legend=false,xtickfontcolor=:white,ytickfontcolor=:white,xtickfontsize=1,ytickfontsize=1,xguidefontsize=18,yguidefontsize=18,titlefontsize=20)
+# for i in 1:1:N*N
+#     plot!(p,real(data_g[:,i] ),real(-im.*data_g[:,i]),color="blue")
+#     quiver!(p,[real(data_g[2,i] ),],[real(-im.*data_g[2,i]);], quiver = [0.1.*(real(data_g[3,i]-data_g[2,i]),real(-im.*(data_g[3,i]-data_g[2,i]))),],color="red")
 
-println(data_g)
-println(test_values)
+# end
+
+plot!(p,[0.0],[0.0,], seriestype=:scatter)
+savefig(p,"ge_evolution.png")
+
+println("here")
