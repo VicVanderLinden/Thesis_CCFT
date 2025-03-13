@@ -11,6 +11,7 @@ using Plots
 using Polynomials
 using LinearAlgebra 
 using JLD2
+using MPSKit: tsvd
 include("Potts-Operators & Hamiltonian.jl")
 Q=5
 
@@ -27,10 +28,31 @@ function tr(x::AbstractArray; dims)
     mapslices(_tr_all_dims, x; dims=dims)
 end
 
+### fucntion from tang wei (doenst work) https://github.com/tangwei94/frustrated-mpo/blob/0124283974e123b54abc274c2fb940f63145fae1/utils.jl#L596
+function rhoLR(ψ1, ψ2)
+    sp = domain(ψ1.AL[1])
+    v0 = TensorMap(rand, ComplexF64, sp, sp)
+
+    C1, C2 = ψ1.AC[1], ψ2.AC[1]
+    U1, S1, V1 = tsvd(C1)
+    U2, S2, V2 = tsvd(C2)
+    @tensor AL1[-1 -2 ; -3] := U1'[-1; 1] * ψ1.AL[1][1 -2; 2] * U1[2; -3]
+    @tensor AL2[-1 -2 ; -3] := U2'[-1; 1] * ψ2.AL[1][1 -2; 2] * U2[2; -3]
+    @tensor AR1[-1 -2 ; -3] := V1[-1; 1] * ψ1.AR[1][1 -2; 2] * V1'[2; -3]
+    @tensor AR2[-1 -2 ; -3] := V2[-1; 1] * ψ2.AR[1][1 -2; 2] * V2'[2; -3]
+    
+    transferL = get_transferL(AL1, AL2)
+    transferR = get_transferR(AR1, AR2)
+
+    _, ρl, _ = eigsolve(transferL, v0, 1, :LM)
+    _, ρr, _ = eigsolve(transferR, v0, 1, :LM)
+    ρl = ρl[1]
+    ρr = ρr[1]
+    ρlr = sqrt(S1) * ρr * S2' * ρl * sqrt(S1) 
+    return ρlr / tr(ρlr)
+end
 
 
-
-using MPSKit: decompose_localmps
 
 function run_sum(L_list,Q,D)
 for (i,L) in enumerate(L_list)
@@ -39,61 +61,75 @@ for (i,L) in enumerate(L_list)
     ψ₀ = FiniteMPS(L,ℂ^Q, ℂ^D);
     #ψ₀ = FiniteMPS(L,Vp,Vect[ZNIrrep{Q}](sector=>D for sector in 0:Q-1)) #;left=Vleft, right=Vright)
 
-    (ψ_right, envir , delta) = find_groundstate(ψ₀, H, DMRG2(maxiter = 500,tol=1e-10, eigalg =MPSKit.Defaults.alg_eigsolve(; ishermitian=false)))
-    (ψ_left, envir , delta) = find_groundstate(ψ₀, H_star, DMRG2(maxiter = 500,tol=1e-10, eigalg =MPSKit.Defaults.alg_eigsolve(; ishermitian=false)))
+    (ψ_right, envir , delta) = find_groundstate(ψ₀, H, DMRG(maxiter = 500,tol=1e-5, eigalg =MPSKit.Defaults.alg_eigsolve(; ishermitian=false)))
+    (ψ_left, envir , delta) = find_groundstate(ψ₀, H_star, DMRG(maxiter = 500,tol=1e-5, eigalg =MPSKit.Defaults.alg_eigsolve(; ishermitian=false)))
     
     ############################################### Kawisha method I: exact diagonalization/full state  #################################################
    
-    ### contracting alll (non simplified with Z_Q)
-    sizesL = size(ψ_left.AL[1].data)
-    contracted_left = reshape(ψ_left.AL[1].data, (Int(sizesL[1]/Q),Q))
-    sizesR = size(ψ_right.AL[1].data)
-    contracted_right = reshape(ψ_right.AL[1].data, (Int(sizesR[1]/Q),Q))
-    for i in 2:L
-        size_contr_l = size(contracted_left)
-        size_contr_r = size(contracted_right)
-        sizesL = size(ψ_left.AL[i].data) 
-        left = reshape(ψ_left.AL[i].data, (Int(sizesL[1]/(Q*size_contr_l[1])),Q,size_contr_l[1]))
-        sizesR = size(ψ_right.AL[i].data)
-        right = reshape(ψ_right.AL[i].data, (Int(sizesR[1]/(Q*size_contr_r[1])),Q,size_contr_r[1]))
+    # ### contracting alll (non simplified with Z_Q)
+    # sizesL = size(ψ_left.AL[1].data)
+    # contracted_left = reshape(ψ_left.AL[1].data, (Int(sizesL[1]/Q),Q))
+    # sizesR = size(ψ_right.AL[1].data)
+    # contracted_right = reshape(ψ_right.AL[1].data, (Int(sizesR[1]/Q),Q))
+    # for i in 2:L
+    #     size_contr_l = size(contracted_left)
+    #     size_contr_r = size(contracted_right)
+    #     sizesL = size(ψ_left.AL[i].data) 
+    #     left = reshape(ψ_left.AL[i].data, (Int(sizesL[1]/(Q*size_contr_l[1])),Q,size_contr_l[1]))
+    #     sizesR = size(ψ_right.AL[i].data)
+    #     right = reshape(ψ_right.AL[i].data, (Int(sizesR[1]/(Q*size_contr_r[1])),Q,size_contr_r[1]))
        
-        contracted_old_left = contracted_left
-        @tensor contracted_left[a,c,d] := contracted_old_left[e,c]*left[a,d,e]
-        contracted_left = reshape(contracted_left,(Int(sizesL[1]/(Q*size_contr_l[1])),Q^(i)))
+    #     contracted_old_left = contracted_left
+    #     @tensor contracted_left[a,c,d] := contracted_old_left[e,c]*left[a,d,e]
+    #     contracted_left = reshape(contracted_left,(Int(sizesL[1]/(Q*size_contr_l[1])),Q^(i)))
      
-        contracted_old_right = contracted_right
-        @tensor contracted_right[b,c,d] := contracted_old_right[e,c]*right[b,d,e]
-        contracted_right = reshape(contracted_right,(Int(sizesR[1]/(Q*size_contr_r[1])),Q^(i)))
-    end
-    contracted_right = contracted_right.*(1/sqrt(contracted_right*contracted_right')[1])
-    contracted_left = contracted_left.*(1/sqrt(contracted_left*contracted_left')[1])
-    rho_AB = contracted_right'*contracted_left
-    rho_AB = rho_AB/((contracted_left*contracted_right')[1])
-    println("is it normalized:",sqrt((contracted_right*rho_AB*contracted_right'))) ### properly normaized
-    ### Taking subtrace and diagonalizing this (with DMRG?)
-    ent = zeros(ComplexF64,(L+1,))
-    rho=rho_AB
-    x = eigvals(rho)
-    s = sum(-lambda*log(lambda) for lambda in x)
-    println(s)
-    ent[L+1] = s
-    for i in 1:L
-        rho_old = rho
-        rho_old = reshape(rho,Int(size(rho)[1]/(Q)),Q,Int(size(rho)[1]/(Q)),Q)
-        rho= Matrix{ComplexF64}(undef,(Q^(L-i),Q^(L-i)))
-        @tensor rho[a,b] := rho_old[a,c,b,c]
-        if size(rho)[1] < 5^6
+    #     contracted_old_right = contracted_right
+    #     @tensor contracted_right[b,c,d] := contracted_old_right[e,c]*right[b,d,e]
+    #     contracted_right = reshape(contracted_right,(Int(sizesR[1]/(Q*size_contr_r[1])),Q^(i)))
+    # end
+    # contracted_right = contracted_right.*(1/sqrt(contracted_right*contracted_right')[1])
+    # contracted_left = contracted_left.*(1/sqrt(contracted_left*contracted_left')[1])
+    # rho_AB = contracted_right'*contracted_left
+    # rho_AB = rho_AB/((contracted_left*contracted_right')[1])
+    # println("is it normalized:",sqrt((contracted_right*rho_AB*contracted_right'))) ### properly normaized
+    # ### Taking subtrace and diagonalizing this (with DMRG?)
+    # ent = zeros(ComplexF64,(L+1,))
+    # rho=rho_AB
+    # x = eigvals(rho)
+    # s = sum(-lambda*log(lambda) for lambda in x)
+    # println(s)
+    # ent[L+1] = s
+    # for i in 1:L
+    #     rho_old = rho
+    #     rho_old = reshape(rho,Int(size(rho)[1]/(Q)),Q,Int(size(rho)[1]/(Q)),Q)
+    #     rho= Matrix{ComplexF64}(undef,(Q^(L-i),Q^(L-i)))
+    #     @tensor rho[a,b] := rho_old[a,c,b,c]
+    #     if size(rho)[1] < 5^6
      
-            #rho_alt = tr(rho_old,dims=(2,4))
-            #rho_alt =  reshape(rho_alt,Int(size(rho)[1]),Int(size(rho)[1])) ## both methods are the same 
-            x = eigvals(rho)
-            s = sum(-lambda*log(lambda) for lambda in x)
-            println(s)
-            ent[L+1-i] = s
-        end
-    end
+    #         #rho_alt = tr(rho_old,dims=(2,4))
+    #         #rho_alt =  reshape(rho_alt,Int(size(rho)[1]),Int(size(rho)[1])) ## both methods are the same 
+    #         x = eigvals(rho)
+    #         s = sum(-lambda*log(lambda) for lambda in x)
+    #         println(s)
+    #         ent[L+1-i] = s
+    #     end
+    # end
    
-   
+   ############################################################# MEHTOD 2 working with MPStricks https://arxiv.org/html/2311.18733v2 #######
+   ent = zeros(ComplexF64,(L,))
+   for i in 1:L 
+       U_L,S_L,V_L = tsvd(ψ_left.C[i])
+       U_R,S_R,V_R = tsvd(ψ_right.C[i])
+       M_A = V_L'*V_R
+       size_M = Int(sqrt(size(M_A.data)[1]))
+       M_A = TensorMap(transpose(reshape(M_A.data,(size_M,size_M))), left_virtualspace(M_A), right_virtualspace(M_A))
+       M_B = U_L'*U_R
+       @tensor rho[a,e] :=  M_B[a,b]*S_R[b,c]*M_A[c,d]*S_L[d,e] ## should be T (but the adjoing is different space for some reason??)
+       sizel = Int(sqrt(size(rho.data)[1]))
+       println(sizel)
+       ent[i] = sum(-lambda*log(lambda) for lambda in eigvals(reshape(rho.data,(sizel,sizel))))
+   end
+
    
    
    
@@ -209,26 +245,7 @@ for (i,L) in enumerate(L_list)
     # end
 
 
-
-
-    ### working with each individually:     https://arxiv.org/pdf/2311.18733
-    # println(size(ψ_left.AL[1].data))
-    # normalization_factor = sum(ψ_left.AL[i].data'*ψ_right.AL[i].data for i in 1:L)
-    # println(normalization_factor)
-    # ψ_left = [ψ_left.AL[i] for i in 1:L]
-    # ψ_right = [(1/normalization_factor)*ψ_right.AL[i] for i in 1:L]
-    # normalization_factor = sum(ψ_left[i].data'*ψ_right[i].data for i in 1:L)
-    # println(normalization_factor)
-    # ent = zeros(ComplexF64,(L,))
-    # for i in 1:L 
-    #     ψ_left.C[i]
-    #     ψ_right.C[i]
-    #     rho =  ψ_left.C[i]'* ψ_right.C[i]
-    #     factor =  ψ_right.C[i].data'*ψ_left.C[i].data 
-    #     n = 0.999
-    #     s = 1/(1-n) * log(tr(factor^n*rho))
-    #     ent[i] = s
-    # end
+    ## working with each individually:     https://arxiv.org/pdf/2311.18733
 
     # p = plot(1:L,real(ent))
     # savefig(p,"test ent 1") 
@@ -273,14 +290,15 @@ for (i,L) in enumerate(L_list)
 end
 
 end
+L = 15
+D = 100
+Q = 5
+results = run_sum([L,],Q,D)
+# plot(0:L,real(-1im.*results),title="Imaginary entropy of L=$L,D=$D")
+# plot(0:L,real(results),xlabel = "subsystem size l",ylabel = "Re(S)",title="real entropy of L=$L,D=$D")
 
-L = 5
-D = 200
-results = run_sum([L,],5,D)
-plot(0:L,real(-1im.*results),title="Imaginary entropy of L=$L,D=$D")
-plot(0:L,real(results),xlabel = "subsystem size l",ylabel = "Re(S)",title="real entropy of L=$L,D=$D")
+   
+   
+   
+   
 
-   
-   
-   
-   
