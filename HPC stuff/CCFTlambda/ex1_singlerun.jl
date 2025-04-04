@@ -110,7 +110,7 @@ function lambda_excitation1()
 
     H = Potts_Hamiltonian(L;lambda = lambda)
     E = expectation_value(ψ, H)
-    En0, _ = excitations(H, QuasiparticleAnsatz(ishermitian=false), ψ, envir; sector=ZNIrrep{5}(0),num=2)
+    En0, _ = excitations(H, QuasiparticleAnsatz(ishermitian=false), ψ, envir; sector=ZNIrrep{5}(1),num=2)
     Es = [E, En0]
     jldsave(savepath; Es)
 end
@@ -138,7 +138,7 @@ Q = 5
 Vp = Vect[ZNIrrep{Q}](0=>1,1=>1,2=>1,3=>1,4=>1)
 
 readpath = joinpath("Data", "Groundstates", "L$L", "5GS_PBC_L=$(L)_$(lambda)_D$(D).jld2")
-savepath = joinpath("Data", "Excitations", "L$L", "5EXC_PBC_L=$(L)_$(lambda)_D$(D).jld2")
+savepath = joinpath("Data", "Excitations", "L$L", "5EXC1_PBC_L=$(L)_$(lambda)_D$(D).jld2")
 t = time()
 lambda_estimation()
 dt = time() - t 
