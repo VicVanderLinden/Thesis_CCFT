@@ -102,7 +102,7 @@ function Potts_Hamiltonian(L; J=1,h=1,Q=5,lambda=0.079 + 0.060im,sym=true,adjoin
 end
 
 
-function lambda_excitation1()
+function lambda_excitation0()
     ## sector search
     ψ = jldopen(readpath, "r") do file
         return file["ψ"]
@@ -140,6 +140,6 @@ Vp = Vect[ZNIrrep{Q}](0=>1,1=>1,2=>1,3=>1,4=>1)
 readpath = joinpath("Data", "Groundstates", "L$L", "5GS_PBC_L=$(L)_$(lambda)_D$(D).jld2")
 savepath = joinpath("Data", "Excitations", "L$L", "5EXC0_PBC_L=$(L)_$(lambda)_D$(D).jld2")
 t = time()
-lambda_estimation()
+lambda_excitation0()
 dt = time() - t 
 @info "L = $L, time = $dt"
