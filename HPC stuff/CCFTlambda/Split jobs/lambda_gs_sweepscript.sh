@@ -1,6 +1,6 @@
 #!/bin/bash
 #PBS -m a
-#PBS -l walltime=2:00:00
+#PBS -l walltime=4:00:00
 #PBS -l nodes=1:ppn=4
 #PBS -l mem=8GB
 #PBS -o $VSC_DATA/Vic/Lambda_estimation/Sweep/Output/stdout.$PBS_JOBID

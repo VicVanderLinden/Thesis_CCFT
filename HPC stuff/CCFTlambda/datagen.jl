@@ -44,7 +44,7 @@ for i in 1:1:(2*N-1)
         end
     end
 end
-Ls = [18, 19, 20]
+Ls = [18, 20]
 W = (2 * N - 1)^2
 M = Matrix{Any}(undef, length(Ls) * W, 3)
 # writedlm("test_values.csv", test_values)
@@ -57,4 +57,4 @@ for (index, L) in enumerate(Ls)
     M[1+(index-1)*W:1:index*W, 3] = Int.([L for _ in 1:1:W])
 end
 M
-writedlm("CCFTlambda/test_values.csv", M, ',')
+writedlm("HPC stuff/CCFTlambda/test_values.csv", M, ',')
