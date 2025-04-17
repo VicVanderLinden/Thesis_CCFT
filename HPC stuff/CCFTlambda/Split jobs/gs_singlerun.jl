@@ -129,7 +129,7 @@ parsed_args = parse_args(s)
 
 lambda = parsed_args["lambdar"]+parsed_args["lambdaim"]*im
 L = parsed_args["L"]
-D = 120
+D = 100
 Q = 5
 Vp = Vect[ZNIrrep{Q}](0=>1,1=>1,2=>1,3=>1,4=>1)
 

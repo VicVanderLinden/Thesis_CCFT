@@ -8,7 +8,6 @@ using Polynomials
 using JLD2
 using LinearAlgebra     
 using Optim
-using ArgParse
 ## POTTS HAMILTONIAN
 
 BLAS.set_num_threads(8) # try with 1
@@ -102,7 +101,7 @@ function Potts_Hamiltonian(L; J=1,h=1,Q=5,lambda=0.079 + 0.060im,sym=true,adjoin
 end
 
 
-function lambda_excitation1()
+function lambda_excitation0()
     ## sector search
     ψ = jldopen(readpath, "r") do file
         return file["ψ"]
@@ -110,37 +109,21 @@ function lambda_excitation1()
 
     H = Potts_Hamiltonian(L;lambda = lambda)
     E = expectation_value(ψ, H)
-    En1, _ = excitations(H, QuasiparticleAnsatz(ishermitian=false), ψ; sector=ZNIrrep{5}(1),num=2)
-    Es = [E, En1]
+    En0, _ = excitations(H, QuasiparticleAnsatz(ishermitian=false), ψ; sector=ZNIrrep{5}(0),num=2)
+    Es = [E, En0]
     jldsave(savepath; Es)
 end
 
-s = ArgParseSettings();
-
-@add_arg_table s begin
-    "--lambdar"
-        arg_type = Float64
-        default = zero(Float64)
-    "--lambdaim"
-        arg_type = Float64
-        default = zero(Float64)
-    "--L"	
-        arg_type = Int
-        default = 2
-end
-
-parsed_args = parse_args(s)
-
-lambda = parsed_args["lambdar"]+parsed_args["lambdaim"]*im
-L = parsed_args["L"]
-D = 100
+lambda = 0.0787 + 0.06035im
+L = 20
+D = 120
 Q = 5
 Vp = Vect[ZNIrrep{Q}](0=>1,1=>1,2=>1,3=>1,4=>1)
 
 readpath = joinpath("Data", "Groundstates", "L$L", "5GS_PBC_L=$(L)_$(lambda)_D$(D).jld2")
-savepath = joinpath("Data", "Excitations", "L$L", "5EXC1_PBC_L=$(L)_$(lambda)_D$(D).jld2")
+savepath = joinpath("Data", "Excitations", "L$L", "5EXC0_PBC_L=$(L)_$(lambda)_D$(D).jld2")
 t = time()
 @info "lambda = $lambda"
-lambda_excitation1()
+lambda_excitation0()
 dt = time() - t 
 @info "L = $L, time = $dt"

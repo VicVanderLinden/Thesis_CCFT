@@ -18,5 +18,5 @@ cd $PBS_O_WORKDIR
 
 # Run simulation
 echo "Job started at : "`date`
-julia --project=. --threads=1 "gs_singlerun.jl" --lambdar $lambdar --lambdaim $lambdaim --L $L
+julia --project=. --threads=1 "gs_manualsinglerun.jl"
 echo "Job ended at : "`date`

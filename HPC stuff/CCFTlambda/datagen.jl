@@ -44,7 +44,7 @@ for i in 1:1:(2*N-1)
         end
     end
 end
-Ls = [18, 20]
+Ls = [22,23]
 W = (2 * N - 1)^2
 M = Matrix{Any}(undef, length(Ls) * W, 3)
 # writedlm("test_values.csv", test_values)

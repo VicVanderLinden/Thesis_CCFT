@@ -45,5 +45,5 @@ NUM_LINES=$(($(wc -l < test_vals_short_GSD120.csv) - 1))
 for i in $(seq 1 $NUM_LINES); do
     echo "Submitting job for parameter values $i"
     extract_line test_vals_short_GSD120.csv $(($i + 1))
-    qsub -N "lambda_ex0_est_sweep__short_$i" -V lambda_ex0_sweepscript.sh 
+    qsub -N "lambda_ex0_est_sweep__short_$i" -V lambda_ex1_sweepscript.sh 
 done
