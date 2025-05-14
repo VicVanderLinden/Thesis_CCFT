@@ -21,7 +21,7 @@ N_sizes = length(L_list)
 N_levels = 0 ## Gets until the N'th energie level
 Energie_levels = Vector{ComplexF64}[]
 
-run = true
+run = false
 if run
 for (i,L) in enumerate(L_list)
 
@@ -48,3 +48,5 @@ for (i,L) in enumerate(L_list)
 end
 save_object("non_sym_Ground_state_MPSNonHermitian_pottsq$Q excited-N$N_levels,D$D,energies-L$L_list.jld2", Energie_levels)
 end
+Q=7
+println( sum(sum(potts_phase_shift_combined(;q=Q,k=l,p=j) for l in 1:1:Q-1) for j in 1:1:Q-1))
