@@ -91,18 +91,16 @@ function infinite_potts(lambda,symytry = true,J=1,h=1,Q=5)
     end
     end
 function run_sim(Q,D)
-    d = D[1]
-    ψ_right = InfiniteMPS(Vp,Vect[ZNIrrep{Q}](sector=>d for sector in 0:Q-1)) 
     for d in D
-        H = infinite_potts(0.079+0.06im)
-        (ψ_right, envir , delta) = find_groundstate(ψ_right, H, VUMPS(maxiter = 2000,tol=1e-8, alg_eigsolve =MPSKit.Defaults.alg_eigsolve(; ishermitian=false)))
-        save_object("GS VUMPS for inf,D=$d.jld2",ψ_right)   
+        H = infinite_potts(0.0788+0.0603im)
+        ψ_right = InfiniteMPS(Vp,Vect[ZNIrrep{Q}](sector=>d for sector in 0:Q-1)) 
+        (ψ_right, envir , delta) = find_groundstate(ψ_right, H, VUMPS(maxiter = 2000,tol=1e-7, alg_eigsolve =MPSKit.Defaults.alg_eigsolve(; ishermitian=false)))
+        save_object("GS VUMPS for inf_nontruncdim,D=$d.jld2",ψ_right)   
         println(ψ_right)
-        ψ_right,envs = changebonds(ψ_right,H,MPSKit.VUMPSSvdCut(trscheme = truncdim(5*(d+3))))
     end
 end
 
-D = 5:2:7
+D = 1:30
 Q = 5
 run_sim(Q,D)
 
